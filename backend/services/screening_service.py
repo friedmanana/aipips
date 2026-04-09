@@ -60,15 +60,35 @@ def _parse_cv_text(cv_text: str, index: int = 0) -> dict:
     if not current_title and len(lines) > 1:
         current_title = lines[1]
 
-    # Extract skills — lines that look like skill lists (short, comma-separated, or bullet items)
+    # Extract skills — capture lines under a SKILLS/COMPETENCIES heading AND
+    # bullet/comma lists elsewhere in the CV.
     skills: list[str] = []
+    _skill_section = False
+    _skill_headings = ("skill", "competenc", "expertise", "proficienc", "technical")
+    _stop_headings = ("experience", "education", "qualification", "employment",
+                      "responsibility", "responsibilit", "overview", "summary",
+                      "reference", "award", "certification")
     for line in lines:
-        if "," in line and len(line) < 200:
-            parts = [p.strip() for p in line.split(",") if p.strip()]
-            if len(parts) >= 2:
-                skills.extend(parts)
-        elif line.startswith(("•", "-", "*", "·")):
+        lower = line.lower().rstrip(":")
+        # Detect start of a skills section
+        if any(h in lower for h in _skill_headings) and len(line) < 60:
+            _skill_section = True
+            continue
+        # Detect end of skills section (new major heading)
+        if _skill_section and any(h in lower for h in _stop_headings) and len(line) < 60:
+            _skill_section = False
+        # Collect items inside the skills section or bullet/comma items anywhere
+        if _skill_section and line.startswith(("•", "-", "*", "·")):
             skills.append(line.lstrip("•-*· ").strip())
+        elif _skill_section and "," in line and len(line) < 200:
+            skills.extend(p.strip() for p in line.split(",") if p.strip())
+        elif not _skill_section:
+            if "," in line and len(line) < 200:
+                parts = [p.strip() for p in line.split(",") if p.strip()]
+                if len(parts) >= 2:
+                    skills.extend(parts)
+            elif line.startswith(("•", "-", "*", "·")):
+                skills.append(line.lstrip("•-*· ").strip())
 
     # Years of experience — look for patterns like "X years"
     import re

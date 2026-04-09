@@ -247,18 +247,20 @@ def upload_cvs(job_id: str, body: UploadCVsRequest) -> ScreeningResponse:
     all_screened = screen_batch(candidates, job) if candidates else []
 
     # Persist each candidate and their screening result
+    # NOTE: screened dicts only contain scoring fields — candidate profile info
+    # (full_name, current_title, etc.) must come from the original parsed CV dict.
     try:
-        for screened in all_screened:
+        for candidate, screened in zip(candidates, all_screened):
             candidate_dict = {
-                "full_name": screened.get("full_name", "Unknown"),
-                "current_title": screened.get("current_title", ""),
-                "current_organisation": screened.get("current_organisation", ""),
-                "location": screened.get("location", "New Zealand"),
-                "years_experience": screened.get("years_experience", 0),
-                "skills": screened.get("skills", []),
-                "qualifications": screened.get("qualifications", []),
-                "summary": screened.get("summary", ""),
-                "linkedin_url": screened.get("linkedin_url"),
+                "full_name": candidate.get("full_name") or screened.get("full_name") or "Unknown",
+                "current_title": candidate.get("current_title", ""),
+                "current_organisation": candidate.get("current_organisation", ""),
+                "location": candidate.get("location", "New Zealand"),
+                "years_experience": candidate.get("years_experience", 0),
+                "skills": candidate.get("skills", []),
+                "qualifications": candidate.get("qualifications", []),
+                "summary": candidate.get("summary", ""),
+                "linkedin_url": candidate.get("linkedin_url"),
                 "source": "DIRECT_APPLY",
             }
             saved_candidate = db.save_candidate(candidate_dict)
