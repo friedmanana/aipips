@@ -41,6 +41,7 @@ export default function JobDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabKey>('shortlisted')
   const [rerunning, setRerunning] = useState(false)
+  const [sourcingStatus, setSourcingStatus] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -65,11 +66,16 @@ export default function JobDetailPage() {
 
   const handleRerun = async () => {
     setRerunning(true)
+    setSourcingStatus(null)
     try {
-      await api.sourceAndScreen(id)
+      setSourcingStatus('searching')
+      const sourced = await api.sourceAndScreen(id) as { total_sourced?: number; total_screened?: number }
       await loadData()
+      const found = sourced?.total_sourced ?? sourced?.total_screened ?? 0
+      setSourcingStatus(found > 0 ? `Found ${found} candidate${found !== 1 ? 's' : ''}` : 'no_results')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err))
+      setSourcingStatus(null)
     } finally {
       setRerunning(false)
     }
@@ -292,6 +298,31 @@ export default function JobDetailPage() {
             ))}
           </div>
 
+          {/* Sourcing status banner */}
+          {sourcingStatus === 'no_results' && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <p className="font-medium">LinkedIn X-Ray search returned 0 candidates</p>
+              <p className="mt-1 text-amber-700">
+                DuckDuckGo didn&apos;t find matching LinkedIn profiles right now — this is common for NZ roles.
+                Try <strong>Re-run Sourcing</strong> again later, or use the <strong>Upload CVs</strong> option to screen candidates directly.
+              </p>
+            </div>
+          )}
+          {sourcingStatus === 'searching' && (
+            <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800 flex items-center gap-2">
+              <svg className="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Searching LinkedIn via DuckDuckGo X-Ray… this takes 30–60 seconds
+            </div>
+          )}
+          {sourcingStatus && sourcingStatus !== 'searching' && sourcingStatus !== 'no_results' && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 font-medium">
+              ✓ {sourcingStatus} — scroll down to view results
+            </div>
+          )}
+
           {/* Candidate list */}
           {activeList.length === 0 ? (
             <div className="bg-white rounded-lg border border-slate-200">
@@ -305,7 +336,15 @@ export default function JobDetailPage() {
                   disabled={rerunning}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
-                  {rerunning ? 'Running…' : 'Run Sourcing & Screening'}
+                  {rerunning ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Searching… (30–60s)
+                    </>
+                  ) : 'Run Sourcing & Screening'}
                 </button>
               </div>
             </div>

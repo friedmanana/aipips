@@ -121,6 +121,16 @@ def _sanitise_job(job_dict: dict) -> dict:
     elif isinstance(raw_date, datetime):
         job["closing_date"] = raw_date.isoformat()
 
+    # Strip common label prefixes that JD parsers leave in the title
+    # e.g. "Position: Senior Policy Advisor" → "Senior Policy Advisor"
+    raw_title = str(job.get("title", "")).strip()
+    for prefix in ("Position:", "Job Title:", "Role:", "Title:", "Post:"):
+        if raw_title.lower().startswith(prefix.lower()):
+            raw_title = raw_title[len(prefix):].strip()
+            break
+    if raw_title:
+        job["title"] = raw_title
+
     # required NOT NULL fields with defaults
     for field, default in (
         ("title", "Untitled Role"),
