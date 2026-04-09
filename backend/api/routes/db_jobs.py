@@ -281,7 +281,7 @@ def run_pipeline(body: RunFullPipelineRequest) -> FullPipelineResponse:
         raise HTTPException(status_code=422, detail=f"Failed to persist results: {exc}") from exc
 
     return FullPipelineResponse(
-        job=result.get("job", {}),
+        job=saved_job,  # use saved_job so the response includes the Supabase-assigned id
         validation=result.get("validation", {}),
         total_sourced=result.get("total_sourced", 0),
         shortlisted=result.get("shortlisted", []),
