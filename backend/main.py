@@ -17,19 +17,20 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://*.vercel.app",
+# FastAPI CORSMiddleware only supports exact origins or "*" (no wildcard subdomains).
+# We allow all origins so the Vercel frontend can reach the Render backend without
+# needing to hard-code a specific deployment URL.  Credentials are not used (no
+# cookies / session auth), so allow_origins="*" is safe here.
+_extra_origins = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
 ]
-# Allow additional origins from env var (comma-separated)
-extra = os.getenv("ALLOWED_ORIGINS", "")
-if extra:
-    ALLOWED_ORIGINS.extend([o.strip() for o in extra.split(",") if o.strip()])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
