@@ -64,3 +64,12 @@ export interface PipelineResult {
   second_round: ScreeningResult[]
   all_screened: ScreeningResult[]
 }
+
+export interface ScreeningResponse {
+  total_screened: number
+  shortlisted: ScreeningResult[]
+  second_round: ScreeningResult[]
+  hold: ScreeningResult[]
+  declined: ScreeningResult[]
+  all_screened: ScreeningResult[]
+}

@@ -27,6 +27,10 @@ class ScreenUploadedCVsRequest(BaseModel):
     raw_jd_text: str
 
 
+class UploadCVsRequest(BaseModel):
+    cv_texts: list[str]
+
+
 class RunFullPipelineRequest(BaseModel):
     raw_jd_text: str
 

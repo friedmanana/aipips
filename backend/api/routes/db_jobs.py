@@ -11,9 +11,10 @@ from api.schemas import (
     RunFullPipelineRequest,
     ScreeningResponse,
     SourcingResponse,
+    UploadCVsRequest,
 )
 from services import database as db
-from services.screening_service import run_full_pipeline
+from services.screening_service import _parse_cv_text, run_full_pipeline
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["jobs-persistent"])
 
@@ -170,6 +171,80 @@ def screen_candidates(job_id: str) -> ScreeningResponse:
             result_dict = {
                 "job_id": job_id,
                 "candidate_id": screened.get("candidate_id") or screened.get("id"),
+                "overall_score": screened.get("overall_score", 0),
+                "skill_match_score": screened.get("skill_match_score", 0),
+                "experience_score": screened.get("experience_score", 0),
+                "qualification_score": screened.get("qualification_score", 0),
+                "nz_fit_score": screened.get("nz_fit_score", 0),
+                "recommendation": screened.get("recommendation", "HOLD"),
+                "recommendation_reason": screened.get("recommendation_reason"),
+                "strengths": screened.get("strengths", []),
+                "concerns": screened.get("concerns", []),
+                "interview_flags": screened.get("interview_flags", []),
+                "notes": screened.get("notes"),
+            }
+            db.save_screening_result(result_dict)
+    except RuntimeError as exc:
+        raise _handle_runtime_error(exc) from exc
+
+    shortlisted = [c for c in all_screened if c.get("recommendation") == "SHORTLIST"]
+    second_round = [c for c in all_screened if c.get("recommendation") == "SECOND_ROUND"]
+    hold = [c for c in all_screened if c.get("recommendation") == "HOLD"]
+    declined = [c for c in all_screened if c.get("recommendation") == "DECLINE"]
+
+    return ScreeningResponse(
+        total_screened=len(all_screened),
+        shortlisted=shortlisted,
+        second_round=second_round,
+        hold=hold,
+        declined=declined,
+        all_screened=all_screened,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/jobs/{job_id}/upload-cvs — screen uploaded CVs and persist
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{job_id}/upload-cvs", response_model=ScreeningResponse)
+def upload_cvs(job_id: str, body: UploadCVsRequest) -> ScreeningResponse:
+    """Parse and screen uploaded CV texts for a persisted job, saving results to Supabase."""
+    try:
+        job = db.get_job(job_id)
+    except RuntimeError as exc:
+        raise _handle_runtime_error(exc) from exc
+
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+
+    # Parse each CV into a candidate dict
+    candidates = [_parse_cv_text(cv_text, idx) for idx, cv_text in enumerate(body.cv_texts)]
+
+    # Screen all parsed candidates against the job
+    all_screened = screen_batch(candidates, job) if candidates else []
+
+    # Persist each candidate and their screening result
+    try:
+        for screened in all_screened:
+            candidate_dict = {
+                "full_name": screened.get("full_name", "Unknown"),
+                "current_title": screened.get("current_title", ""),
+                "current_organisation": screened.get("current_organisation", ""),
+                "location": screened.get("location", "New Zealand"),
+                "years_experience": screened.get("years_experience", 0),
+                "skills": screened.get("skills", []),
+                "qualifications": screened.get("qualifications", []),
+                "summary": screened.get("summary", ""),
+                "linkedin_url": screened.get("linkedin_url"),
+                "source": "DIRECT_APPLY",
+            }
+            saved_candidate = db.save_candidate(candidate_dict)
+            candidate_id = saved_candidate.get("id")
+
+            result_dict = {
+                "job_id": job_id,
+                "candidate_id": candidate_id,
                 "overall_score": screened.get("overall_score", 0),
                 "skill_match_score": screened.get("skill_match_score", 0),
                 "experience_score": screened.get("experience_score", 0),

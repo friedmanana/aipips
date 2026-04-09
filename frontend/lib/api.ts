@@ -1,4 +1,4 @@
-import type { Job, ScreeningResult, PipelineResult } from '@/types'
+import type { Job, ScreeningResult, PipelineResult, ScreeningResponse } from '@/types'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
@@ -42,4 +42,10 @@ export const api = {
       body: JSON.stringify({}),
     })
   },
+
+  uploadCVs: (jobId: string, cvTexts: string[]) =>
+    fetchAPI<ScreeningResponse>(`/api/v1/jobs/${jobId}/upload-cvs`, {
+      method: 'POST',
+      body: JSON.stringify({ cv_texts: cvTexts }),
+    }),
 }
