@@ -132,7 +132,13 @@ def run_full_pipeline(raw_jd_text: str) -> dict:
         }
     """
     # Step 1: Analyse JD
-    job = _run_analyse_job(raw_jd_text)
+    # _analyse_job returns {"job_description": {...}, "validation": {...}, "enriched": bool}
+    # Extract the flat job dict from the nested result.
+    analyse_result = _run_analyse_job(raw_jd_text)
+    if isinstance(analyse_result, dict) and "job_description" in analyse_result:
+        job = analyse_result["job_description"]
+    else:
+        job = analyse_result  # fallback: already a flat dict
     validation = _validate_jd(job)
 
     # Step 2: Source candidates
@@ -198,7 +204,11 @@ def screen_uploaded_candidates(candidates_text: list[str], raw_jd_text: str) -> 
         }
     """
     # Analyse JD
-    job = _run_analyse_job(raw_jd_text)
+    analyse_result = _run_analyse_job(raw_jd_text)
+    if isinstance(analyse_result, dict) and "job_description" in analyse_result:
+        job = analyse_result["job_description"]
+    else:
+        job = analyse_result
     validation = _validate_jd(job)
 
     # Parse each CV
