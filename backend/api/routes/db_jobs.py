@@ -231,7 +231,10 @@ def get_shortlist(job_id: str) -> list[dict]:
 @router.post("/pipeline", response_model=FullPipelineResponse)
 def run_pipeline(body: RunFullPipelineRequest) -> FullPipelineResponse:
     """Run the full recruitment pipeline and persist all data to Supabase."""
-    result = run_full_pipeline(body.raw_jd_text)
+    try:
+        result = run_full_pipeline(body.raw_jd_text)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Pipeline failed: {exc}") from exc
 
     job_dict = result.get("job", {})
 
@@ -274,6 +277,8 @@ def run_pipeline(body: RunFullPipelineRequest) -> FullPipelineResponse:
 
     except RuntimeError as exc:
         raise _handle_runtime_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to persist results: {exc}") from exc
 
     return FullPipelineResponse(
         job=result.get("job", {}),

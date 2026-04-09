@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ConfigDict
@@ -49,6 +51,60 @@ def get_client() -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _sanitise_job(job_dict: dict) -> dict:
+    """Coerce a job dict into a shape Supabase will accept."""
+    job = dict(job_dict)
+
+    # Ensure id is a string UUID
+    if not job.get("id"):
+        job["id"] = str(uuid.uuid4())
+    else:
+        job["id"] = str(job["id"])
+
+    # closing_date must be a valid ISO timestamp
+    raw_date = job.get("closing_date", "")
+    if not raw_date or raw_date in ("", "null", None):
+        job["closing_date"] = (
+            datetime.now(timezone.utc) + timedelta(days=28)
+        ).isoformat()
+    elif isinstance(raw_date, datetime):
+        job["closing_date"] = raw_date.isoformat()
+
+    # required NOT NULL fields with defaults
+    for field, default in (
+        ("title", "Untitled Role"),
+        ("organisation", "Unknown Organisation"),
+        ("department", ""),
+        ("location", "New Zealand"),
+        ("salary_band", ""),
+        ("employment_type", "permanent"),
+        ("overview", ""),
+    ):
+        if not job.get(field):
+            job[field] = default
+
+    # JSONB list fields — ensure they are plain lists, not other types
+    for field in (
+        "responsibilities", "required_skills", "preferred_skills",
+        "qualifications", "competencies",
+    ):
+        val = job.get(field, [])
+        job[field] = list(val) if val else []
+
+    # status default
+    if not job.get("status"):
+        job["status"] = "DRAFT"
+
+    # Remove any keys not in the jobs table schema
+    allowed = {
+        "id", "title", "organisation", "department", "location",
+        "salary_band", "employment_type", "closing_date", "overview",
+        "responsibilities", "required_skills", "preferred_skills",
+        "qualifications", "competencies", "status", "raw_jd_text",
+    }
+    return {k: v for k, v in job.items() if k in allowed}
+
+
 def save_job(job_dict: dict) -> dict:
     """Upsert a job record into the jobs table and return the saved record.
 
@@ -65,7 +121,7 @@ def save_job(job_dict: dict) -> dict:
     client = get_client()
     response = (
         client.table("jobs")
-        .upsert(job_dict, on_conflict="id")
+        .upsert(_sanitise_job(job_dict), on_conflict="id")
         .execute()
     )
     return response.data[0]
