@@ -434,3 +434,16 @@ def get_all_results_for_job(job_id: str) -> list[dict]:
         candidate_info = row.pop("candidates", {}) or {}
         results.append({**candidate_info, **row})
     return results
+
+
+@_retryable
+def clear_screening_results(job_id: str) -> int:
+    """Delete all screening results for a job. Returns number of deleted rows."""
+    client = get_client()
+    response = (
+        client.table("screening_results")
+        .delete()
+        .eq("job_id", job_id)
+        .execute()
+    )
+    return len(response.data)

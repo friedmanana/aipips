@@ -203,6 +203,21 @@ def screen_candidates(job_id: str) -> ScreeningResponse:
 
 
 # ---------------------------------------------------------------------------
+# DELETE /api/v1/jobs/{job_id}/results — clear all screening results for a job
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/{job_id}/results")
+def clear_results(job_id: str) -> dict:
+    """Delete all screening results for a job (allows a clean re-upload)."""
+    try:
+        deleted = db.clear_screening_results(job_id)
+    except RuntimeError as exc:
+        raise _handle_runtime_error(exc) from exc
+    return {"deleted": deleted}
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/jobs/{job_id}/results — all screening results (all recommendations)
 # ---------------------------------------------------------------------------
 
