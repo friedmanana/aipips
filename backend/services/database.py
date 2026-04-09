@@ -17,21 +17,23 @@ if TYPE_CHECKING:
     from supabase._sync.client import SyncClient as Client  # noqa: F401
 
 # ---------------------------------------------------------------------------
-# Force HTTP/1.1 for PostgREST client
+# Force HTTP/1.1 for all httpx.Client instances
 #
 # postgrest-py >= 0.16 creates its internal httpx.Client with http2=True.
-# On Render free tier this triggers StreamReset (HTTP/2 PROTOCOL_ERROR) on
-# every request to Supabase. Patching _get_sync_session forces HTTP/1.1.
+# On Render free tier Supabase's PostgREST endpoint resets every HTTP/2
+# stream with PROTOCOL_ERROR (error_code=1).  Patching httpx.Client.__init__
+# globally to inject http2=False is the most robust fix — it works regardless
+# of the postgrest-py version or internal method names.
 # ---------------------------------------------------------------------------
-try:
-    import postgrest._sync.client as _pg_sync  # type: ignore[import]
+_orig_httpx_client_init = httpx.Client.__init__
 
-    def _http1_sync_session(self: Any, headers: Any) -> httpx.Client:  # noqa: ANN001
-        return httpx.Client(headers=dict(headers), follow_redirects=True, http2=False)
 
-    _pg_sync.SyncPostgrestClient._get_sync_session = _http1_sync_session  # type: ignore[attr-defined]
-except Exception:  # noqa: BLE001
-    pass  # if postgrest isn't installed or API changed, proceed without patch
+def _force_http1_client(self: Any, *args: Any, **kwargs: Any) -> None:
+    kwargs["http2"] = False
+    _orig_httpx_client_init(self, *args, **kwargs)
+
+
+httpx.Client.__init__ = _force_http1_client  # type: ignore[method-assign]
 
 # ---------------------------------------------------------------------------
 # Settings
