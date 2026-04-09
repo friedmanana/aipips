@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from functools import wraps
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from supabase import create_client  # type: ignore[attr-defined]
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 if TYPE_CHECKING:
     from supabase._sync.client import SyncClient as Client  # noqa: F401
@@ -24,6 +28,33 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+# ---------------------------------------------------------------------------
+# Retry helper — handles transient HTTP/2 StreamReset errors from Supabase
+# ---------------------------------------------------------------------------
+
+_TRANSIENT_ERRORS = ("StreamReset", "RemoteProtocolError", "ConnectError", "ConnectionResetError")
+
+
+def _retryable(func: _F) -> _F:
+    """Retry a Supabase call up to 3 times on transient connection errors."""
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                return func(*args, **kwargs)
+            except Exception as exc:  # noqa: BLE001
+                if any(kw in str(exc) for kw in _TRANSIENT_ERRORS):
+                    last_exc = exc
+                    time.sleep(0.5 * (attempt + 1))
+                else:
+                    raise
+        raise last_exc  # type: ignore[misc]
+
+    return wrapper  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +136,7 @@ def _sanitise_job(job_dict: dict) -> dict:
     return {k: v for k, v in job.items() if k in allowed}
 
 
+@_retryable
 def save_job(job_dict: dict) -> dict:
     """Upsert a job record into the jobs table and return the saved record.
 
@@ -127,6 +159,7 @@ def save_job(job_dict: dict) -> dict:
     return response.data[0]
 
 
+@_retryable
 def get_job(job_id: str) -> dict | None:
     """Fetch a single job by its UUID.
 
@@ -151,6 +184,7 @@ def get_job(job_id: str) -> dict | None:
     return None
 
 
+@_retryable
 def list_jobs(status: str | None = None) -> list[dict]:
     """Return all jobs, optionally filtered by status.
 
@@ -171,6 +205,7 @@ def list_jobs(status: str | None = None) -> list[dict]:
     return response.data
 
 
+@_retryable
 def update_job_status(job_id: str, status: str) -> dict:
     """Update the status field of a job.
 
@@ -199,6 +234,7 @@ def update_job_status(job_id: str, status: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
+@_retryable
 def save_candidate(candidate_dict: dict) -> dict:
     """Upsert a candidate record and return the saved record.
 
@@ -220,6 +256,7 @@ def save_candidate(candidate_dict: dict) -> dict:
     return response.data[0]
 
 
+@_retryable
 def get_candidate(candidate_id: str) -> dict | None:
     """Fetch a single candidate by UUID.
 
@@ -244,6 +281,7 @@ def get_candidate(candidate_id: str) -> dict | None:
     return None
 
 
+@_retryable
 def list_candidates_for_job(job_id: str) -> list[dict]:
     """Return all candidates linked to a job via screening_results.
 
@@ -275,6 +313,7 @@ def list_candidates_for_job(job_id: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+@_retryable
 def save_screening_result(result_dict: dict) -> dict:
     """Upsert a screening result (job_id + candidate_id is unique).
 
@@ -296,6 +335,7 @@ def save_screening_result(result_dict: dict) -> dict:
     return response.data[0]
 
 
+@_retryable
 def get_shortlist(job_id: str) -> list[dict]:
     """Return shortlisted screening results for a job, joined with candidate info.
 
@@ -327,6 +367,7 @@ def get_shortlist(job_id: str) -> list[dict]:
     return results
 
 
+@_retryable
 def get_all_results_for_job(job_id: str) -> list[dict]:
     """Return all screening results for a job ordered by overall_score descending.
 
