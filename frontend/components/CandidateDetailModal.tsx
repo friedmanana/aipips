@@ -20,9 +20,9 @@ const recConfig: Record<Recommendation, { label: string; color: string }> = {
 
 function ScoreBar({ label, score }: { label: string; score: number }) {
   const color =
-    score >= 75 ? 'bg-green-500' : score >= 55 ? 'bg-yellow-400' : score >= 35 ? 'bg-orange-400' : 'bg-red-400'
+    score >= 75 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-400' : score >= 45 ? 'bg-orange-400' : 'bg-red-400'
   const textColor =
-    score >= 75 ? 'text-green-700' : score >= 55 ? 'text-yellow-700' : score >= 35 ? 'text-orange-600' : 'text-red-600'
+    score >= 75 ? 'text-green-700' : score >= 60 ? 'text-yellow-700' : score >= 45 ? 'text-orange-600' : 'text-red-600'
   return (
     <div>
       <div className="flex justify-between mb-1">

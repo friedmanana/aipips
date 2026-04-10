@@ -26,7 +26,7 @@ const MOVE_ACTIONS: { tier: Recommendation; label: string; color: string }[] = [
 
 function SubScore({ label, score }: { label: string; score: number }) {
   const color =
-    score >= 75 ? 'text-green-700' : score >= 55 ? 'text-yellow-700' : score >= 35 ? 'text-orange-600' : 'text-red-600'
+    score >= 75 ? 'text-green-700' : score >= 60 ? 'text-yellow-700' : score >= 45 ? 'text-orange-600' : 'text-red-600'
   return (
     <span className="flex flex-col items-center gap-0.5">
       <span className={`text-sm font-semibold ${color}`}>{Math.round(score)}</span>

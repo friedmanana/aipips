@@ -6,8 +6,8 @@ interface ScoreBadgeProps {
 export default function ScoreBadge({ score, size = 'md' }: ScoreBadgeProps) {
   const getColor = (s: number) => {
     if (s >= 75) return 'bg-green-100 text-green-800 ring-green-300'
-    if (s >= 55) return 'bg-yellow-100 text-yellow-800 ring-yellow-300'
-    if (s >= 35) return 'bg-orange-100 text-orange-800 ring-orange-300'
+    if (s >= 60) return 'bg-yellow-100 text-yellow-800 ring-yellow-300'
+    if (s >= 45) return 'bg-orange-100 text-orange-800 ring-orange-300'
     return 'bg-red-100 text-red-800 ring-red-300'
   }
 

@@ -354,7 +354,7 @@ export default function JobDetailPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Searching LinkedIn via DuckDuckGo X-Ray… this takes 30–60 seconds
+              AI is sourcing and screening candidates for this role — usually takes 30–60 seconds
             </div>
           )}
           {sourcingStatus && sourcingStatus !== 'searching' && sourcingStatus !== 'no_results' && (
@@ -425,10 +425,10 @@ export default function JobDetailPage() {
             <div className="mt-4 flex items-center gap-4 text-xs text-slate-500 flex-wrap">
               <span className="font-medium">Score:</span>
               {[
-                { label: '≥75 Strong', color: 'bg-green-100 text-green-800' },
-                { label: '≥55 Good', color: 'bg-yellow-100 text-yellow-800' },
-                { label: '≥35 Fair', color: 'bg-orange-100 text-orange-800' },
-                { label: '<35 Weak', color: 'bg-red-100 text-red-800' },
+                { label: '≥75 Shortlist', color: 'bg-green-100 text-green-800' },
+                { label: '≥60 Second Round', color: 'bg-yellow-100 text-yellow-800' },
+                { label: '≥45 Hold', color: 'bg-orange-100 text-orange-800' },
+                { label: '<45 Decline', color: 'bg-red-100 text-red-800' },
               ].map(({ label, color }) => (
                 <span key={label} className={`px-2 py-0.5 rounded-full ${color}`}>
                   {label}
