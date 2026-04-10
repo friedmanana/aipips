@@ -271,3 +271,4 @@ export default function CandidateDetailModal({ result, onClose, onMove, onDelete
     </div>
   )
 }
+
