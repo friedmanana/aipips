@@ -137,3 +137,4 @@ export default function CandidateCard({ result, onClick, onMove, onDelete }: Can
     </div>
   )
 }
+
