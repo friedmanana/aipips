@@ -43,6 +43,7 @@ export default function JobDetailPage() {
   const [rerunning, setRerunning] = useState(false)
   const [sourcingStatus, setSourcingStatus] = useState<string | null>(null)
   const [selectedCandidate, setSelectedCandidate] = useState<ScreeningResult | null>(null)
+  const [moveConfirm, setMoveConfirm] = useState<{ resultId: string; recommendation: Recommendation } | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -82,7 +83,15 @@ export default function JobDetailPage() {
     }
   }
 
-  const handleMove = async (resultId: string, recommendation: Recommendation) => {
+  const handleMove = (resultId: string, recommendation: Recommendation) => {
+    // Show confirmation first
+    setMoveConfirm({ resultId, recommendation })
+  }
+
+  const confirmMove = async () => {
+    if (!moveConfirm) return
+    const { resultId, recommendation } = moveConfirm
+    setMoveConfirm(null)
     // Optimistic update
     setCandidates((prev) =>
       prev.map((c) => (c.id === resultId ? { ...c, recommendation } : c))
@@ -93,7 +102,6 @@ export default function JobDetailPage() {
     try {
       await api.updateResultRecommendation(id, resultId, recommendation)
     } catch {
-      // Revert on failure
       await loadData()
     }
   }
@@ -216,9 +224,9 @@ export default function JobDetailPage() {
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
-                  Re-run Sourcing
+                  Find Candidates with AI
                 </>
               )}
             </button>
@@ -265,15 +273,6 @@ export default function JobDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Job details */}
         <div className="lg:col-span-1 space-y-4">
-          {job.overview && (
-            <div className="bg-white rounded-lg border border-slate-200 p-5">
-              <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">
-                Overview
-              </h2>
-              <p className="text-sm text-slate-600 leading-relaxed">{job.overview}</p>
-            </div>
-          )}
-
           {job.responsibilities && job.responsibilities.length > 0 && (
             <div className="bg-white rounded-lg border border-slate-200 p-5">
               <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">
@@ -399,7 +398,7 @@ export default function JobDetailPage() {
                         </svg>
                         Searching… (30–60s)
                       </>
-                    ) : 'Run LinkedIn Sourcing'}
+                    ) : 'Find Candidates with AI'}
                   </button>
                 </div>
               )}
@@ -450,6 +449,48 @@ export default function JobDetailPage() {
         onDelete={handleDelete}
       />
     )}
+
+    {/* Move confirmation dialog */}
+    {moveConfirm && (() => {
+      const labels: Record<Recommendation, string> = {
+        SHORTLIST: 'Shortlisted',
+        SECOND_ROUND: 'Second Round',
+        HOLD: 'Hold',
+        DECLINE: 'Decline',
+      }
+      const colors: Record<Recommendation, string> = {
+        SHORTLIST: 'bg-green-600 hover:bg-green-700',
+        SECOND_ROUND: 'bg-blue-600 hover:bg-blue-700',
+        HOLD: 'bg-yellow-500 hover:bg-yellow-600',
+        DECLINE: 'bg-red-600 hover:bg-red-700',
+      }
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMoveConfirm(null)} />
+          <div className="relative bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-base font-semibold text-slate-900 mb-2">Move candidate?</h3>
+            <p className="text-sm text-slate-600 mb-5">
+              This candidate will be moved to{' '}
+              <span className="font-semibold text-slate-900">{labels[moveConfirm.recommendation]}</span>.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setMoveConfirm(null)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmMove}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${colors[moveConfirm.recommendation]}`}
+              >
+                Move to {labels[moveConfirm.recommendation]}
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    })()}
     </>
   )
 }
