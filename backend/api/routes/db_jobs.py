@@ -3,10 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-
-class UpdateRecommendationRequest(BaseModel):
-    recommendation: str
-
 from agents.candidate_screener_agent import screen_batch
 from agents.candidate_sourcing_agent import run_sourcing
 from api.schemas import (
@@ -20,6 +16,10 @@ from api.schemas import (
 )
 from services import database as db
 from services.screening_service import _parse_cv_text, run_full_pipeline
+
+
+class UpdateRecommendationRequest(BaseModel):
+    recommendation: str
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["jobs-persistent"])
 
