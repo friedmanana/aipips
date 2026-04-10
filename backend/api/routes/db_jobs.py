@@ -313,6 +313,7 @@ def upload_cvs(job_id: str, body: UploadCVsRequest) -> ScreeningResponse:
                 "qualifications": candidate.get("qualifications", []),
                 "summary": candidate.get("summary", ""),
                 "linkedin_url": candidate.get("linkedin_url"),
+                "email": candidate.get("email", ""),
                 "source": "DIRECT_APPLY",
             }
             saved_candidate = db.save_candidate(candidate_dict)

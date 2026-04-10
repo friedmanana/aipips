@@ -470,3 +470,136 @@ def delete_result(result_id: str) -> bool:
     client = get_client()
     client.table("screening_results").delete().eq("id", result_id).execute()
     return True
+
+
+# ---------------------------------------------------------------------------
+# Interview slots CRUD
+# ---------------------------------------------------------------------------
+
+
+@_retryable
+def save_slot(slot_dict: dict) -> dict:
+    """Insert or upsert an interview slot."""
+    client = get_client()
+    if slot_dict.get("id"):
+        response = (
+            client.table("interview_slots")
+            .upsert(slot_dict, on_conflict="id")
+            .execute()
+        )
+    else:
+        response = client.table("interview_slots").insert(slot_dict).execute()
+    return response.data[0]
+
+
+@_retryable
+def list_slots(job_id: str, available_only: bool = False) -> list[dict]:
+    """Return interview slots for a job, ordered by start time."""
+    client = get_client()
+    query = (
+        client.table("interview_slots")
+        .select("*")
+        .eq("job_id", job_id)
+        .order("starts_at")
+    )
+    if available_only:
+        query = query.eq("is_booked", False)
+    return query.execute().data
+
+
+@_retryable
+def delete_slot(slot_id: str) -> bool:
+    """Delete an interview slot by ID."""
+    client = get_client()
+    client.table("interview_slots").delete().eq("id", slot_id).execute()
+    return True
+
+
+@_retryable
+def book_slot(slot_id: str, candidate_id: str | None) -> dict:
+    """Mark a slot as booked and record which candidate booked it."""
+    client = get_client()
+    update: dict = {"is_booked": True}
+    if candidate_id:
+        update["booked_by"] = candidate_id
+    response = (
+        client.table("interview_slots")
+        .update(update)
+        .eq("id", slot_id)
+        .execute()
+    )
+    if not response.data:
+        raise RuntimeError(f"Slot '{slot_id}' not found.")
+    return response.data[0]
+
+
+# ---------------------------------------------------------------------------
+# Communications CRUD
+# ---------------------------------------------------------------------------
+
+
+@_retryable
+def save_communication(comm_dict: dict) -> dict:
+    """Insert a new communication record."""
+    client = get_client()
+    response = client.table("communications").insert(comm_dict).execute()
+    return response.data[0]
+
+
+@_retryable
+def list_communications(job_id: str) -> list[dict]:
+    """Return all communications for a job with basic candidate info, newest first."""
+    client = get_client()
+    response = (
+        client.table("communications")
+        .select("*, candidates(full_name, email)")
+        .eq("job_id", job_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    results = []
+    for row in response.data:
+        candidate_info = row.pop("candidates", {}) or {}
+        results.append({**candidate_info, **row})
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Booking tokens CRUD
+# ---------------------------------------------------------------------------
+
+
+@_retryable
+def save_booking_token(token_dict: dict) -> dict:
+    """Insert a new booking token."""
+    client = get_client()
+    response = client.table("booking_tokens").insert(token_dict).execute()
+    return response.data[0]
+
+
+@_retryable
+def get_booking_token(token: str) -> dict | None:
+    """Fetch a booking token by its token string, joined with communication info."""
+    client = get_client()
+    response = (
+        client.table("booking_tokens")
+        .select("*, communications(job_id, candidate_id, type)")
+        .eq("token", token)
+        .execute()
+    )
+    if response.data:
+        return response.data[0]
+    return None
+
+
+@_retryable
+def use_booking_token(token_id: str) -> dict:
+    """Mark a booking token as used (set used_at to now)."""
+    client = get_client()
+    response = (
+        client.table("booking_tokens")
+        .update({"used_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", token_id)
+        .execute()
+    )
+    return response.data[0] if response.data else {}

@@ -1,4 +1,4 @@
-import type { Job, ScreeningResult, PipelineResult, ScreeningResponse } from '@/types'
+import type { Job, ScreeningResult, PipelineResult, ScreeningResponse, Communication, InterviewSlot, BookingInfo } from '@/types'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
@@ -62,4 +62,53 @@ export const api = {
     fetchAPI(`/api/v1/jobs/${jobId}/results/${resultId}`, {
       method: 'DELETE',
     }),
+
+  // --- Communications ---
+  listComms: (jobId: string) =>
+    fetchAPI<Communication[]>(`/api/v1/jobs/${jobId}/comms`),
+
+  rejectBatch: (jobId: string, candidateIds: string[]) =>
+    fetchAPI<{ sent: number; errors: unknown[]; communications: Communication[] }>(
+      `/api/v1/jobs/${jobId}/comms/reject-batch`,
+      { method: 'POST', body: JSON.stringify({ candidate_ids: candidateIds }) }
+    ),
+
+  inviteBatch: (
+    jobId: string,
+    candidateIds: string[],
+    type: 'SHORTLIST_INVITE' | 'PHONE_SCREEN_INVITE' = 'SHORTLIST_INVITE',
+    slotIds: string[] = []
+  ) =>
+    fetchAPI<{ sent: number; errors: unknown[]; communications: Communication[] }>(
+      `/api/v1/jobs/${jobId}/comms/invite-batch`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ candidate_ids: candidateIds, type, slot_ids: slotIds }),
+      }
+    ),
+
+  // --- Slots ---
+  listSlots: (jobId: string, availableOnly = false) =>
+    fetchAPI<InterviewSlot[]>(
+      `/api/v1/jobs/${jobId}/slots${availableOnly ? '?available_only=true' : ''}`
+    ),
+
+  createSlot: (jobId: string, startsAt: string, endsAt: string, durationMins = 30) =>
+    fetchAPI<InterviewSlot>(`/api/v1/jobs/${jobId}/slots`, {
+      method: 'POST',
+      body: JSON.stringify({ starts_at: startsAt, ends_at: endsAt, duration_mins: durationMins }),
+    }),
+
+  deleteSlot: (jobId: string, slotId: string) =>
+    fetchAPI(`/api/v1/jobs/${jobId}/slots/${slotId}`, { method: 'DELETE' }),
+
+  // --- Booking (public) ---
+  getBookingInfo: (token: string) =>
+    fetchAPI<BookingInfo>(`/api/v1/book/${token}`),
+
+  confirmBooking: (token: string, slotId: string) =>
+    fetchAPI<{ confirmed: boolean; slot: InterviewSlot; job: { title: string; organisation: string } }>(
+      `/api/v1/book/${token}/confirm`,
+      { method: 'POST', body: JSON.stringify({ slot_id: slotId }) }
+    ),
 }

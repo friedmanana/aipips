@@ -112,6 +112,14 @@ def _parse_cv_text(cv_text: str, index: int = 0) -> dict:
             current_organisation = line
             break
 
+    # Email — extract first email address found in CV
+    email = ""
+    for line in lines:
+        email_match = re.search(r"[\w.+-]+@[\w-]+\.[a-z]{2,}", line, re.IGNORECASE)
+        if email_match:
+            email = email_match.group(0).lower()
+            break
+
     # Summary — concatenate the first 500 characters of meaningful content so that
     # treaty/bicultural keywords spread across multiple sentences are all captured.
     summary_parts: list[str] = []
@@ -132,6 +140,7 @@ def _parse_cv_text(cv_text: str, index: int = 0) -> dict:
         "years_experience": years_experience,
         "skills": list(dict.fromkeys(skills)),  # deduplicate preserving order
         "qualifications": [],
+        "email": email,
         "summary": summary or cv_text[:300],
         "raw_cv_text": cv_text,
     }

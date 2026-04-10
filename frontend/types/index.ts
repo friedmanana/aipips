@@ -78,3 +78,51 @@ export interface ScreeningResponse {
   declined: ScreeningResult[]
   all_screened: ScreeningResult[]
 }
+
+// --- Communications ---
+
+export type CommType =
+  | 'REJECTION'
+  | 'SHORTLIST_INVITE'
+  | 'PHONE_SCREEN_INVITE'
+  | 'BOOKING_CONFIRMATION'
+  | 'CUSTOM'
+
+export type CommStatus = 'PENDING' | 'SENT' | 'FAILED' | 'NO_EMAIL' | 'DELIVERED'
+
+export interface Communication {
+  id: string
+  job_id: string
+  candidate_id: string
+  type: CommType
+  subject: string
+  body_text: string
+  body_html: string
+  sent_at: string | null
+  status: CommStatus
+  resend_message_id: string | null
+  slot_id: string | null
+  created_at: string
+  // merged candidate fields
+  full_name?: string
+  email?: string
+}
+
+export interface InterviewSlot {
+  id: string
+  job_id: string
+  starts_at: string
+  ends_at: string
+  duration_mins: number
+  is_booked: boolean
+  booked_by: string | null
+  created_at: string
+}
+
+export interface BookingInfo {
+  token_id: string
+  job: { title: string; organisation: string }
+  candidate_name: string | null
+  slots: InterviewSlot[]
+  expires_at: string
+}
