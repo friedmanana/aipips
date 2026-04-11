@@ -119,8 +119,26 @@ export const api = {
     fetchAPI<BookingInfo>(`/api/v1/book/${token}`),
 
   confirmBooking: (token: string, slotId: string) =>
-    fetchAPI<{ confirmed: boolean; slot: InterviewSlot; job: { title: string; organisation: string } }>(
+    fetchAPI<{
+      confirmed: boolean
+      slot: InterviewSlot
+      meet_link: string | null
+      calendar_event_url: string | null
+      job: { title: string; organisation: string }
+    }>(
       `/api/v1/book/${token}/confirm`,
       { method: 'POST', body: JSON.stringify({ slot_id: slotId }) }
     ),
+
+  // --- Integrations ---
+  getGoogleAuthUrl: () =>
+    fetchAPI<{ url: string }>('/api/v1/integrations/google/auth-url'),
+
+  getGoogleStatus: () =>
+    fetchAPI<{ connected: boolean; user_email?: string; connected_at?: string }>(
+      '/api/v1/integrations/google/status'
+    ),
+
+  disconnectGoogle: () =>
+    fetchAPI('/api/v1/integrations/google', { method: 'DELETE' }),
 }

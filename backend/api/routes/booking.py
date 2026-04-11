@@ -73,7 +73,7 @@ class ConfirmBookingRequest(BaseModel):
 
 @router.post("/{token}/confirm")
 def confirm_booking(token: str, body: ConfirmBookingRequest) -> dict:
-    """Confirm a slot selection — marks token used, books slot, sends confirmation email."""
+    """Confirm a slot — marks token used, books slot, sends email, creates Google Calendar event."""
     token_row = _validate_token(token)
 
     comm_info = token_row.get("communications") or {}
@@ -90,23 +90,90 @@ def confirm_booking(token: str, body: ConfirmBookingRequest) -> dict:
     try:
         db.use_booking_token(token_row["id"])
     except RuntimeError:
-        pass  # Non-fatal
+        pass
 
-    # Send confirmation email — fire-and-forget (don't fail the booking if email fails)
+    meet_link: str | None = None
+    calendar_event_url: str | None = None
+
     if job_id and candidate_id:
         job = db.get_job(job_id) or {}
         candidate = db.get_candidate(candidate_id) or {}
+
+        # Send confirmation email
         if job and candidate:
             try:
                 send_booking_confirmation(candidate, job, slot)
             except Exception:  # noqa: BLE001
                 pass
 
+        # Create Google Calendar event
+        if job and candidate:
+            gcal_result = _create_calendar_event(job, candidate, slot)
+            meet_link = gcal_result.get("meet_link")
+            calendar_event_url = gcal_result.get("html_link")
+
+            # Persist meet link on the slot for future reference
+            if meet_link or calendar_event_url:
+                try:
+                    db.update_slot_calendar(
+                        slot["id"],
+                        calendar_event_id=gcal_result.get("event_id"),
+                        meet_link=meet_link,
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+
     return {
         "confirmed": True,
         "slot": slot,
+        "meet_link": meet_link,
+        "calendar_event_url": calendar_event_url,
         "job": {
             "title": (db.get_job(job_id) or {}).get("title", "") if job_id else "",
             "organisation": (db.get_job(job_id) or {}).get("organisation", "") if job_id else "",
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Internal helper — Google Calendar event creation (fire-and-forget)
+# ---------------------------------------------------------------------------
+
+
+def _create_calendar_event(job: dict, candidate: dict, slot: dict) -> dict:
+    """Try to create a Google Calendar event. Returns {} silently if not configured."""
+    try:
+        from services import google_calendar_service as gcal  # noqa: PLC0415
+
+        integration = db.get_integration("google_calendar")
+        if not integration:
+            return {}
+
+        service = gcal.get_calendar_service(
+            access_token=integration["access_token"],
+            refresh_token=integration["refresh_token"],
+            token_expiry=integration.get("token_expiry"),
+        )
+
+        interviewer_email = integration.get("user_email", "")
+        candidate_email = candidate.get("email", "")
+
+        attendees = [e for e in [interviewer_email, candidate_email] if e]
+
+        title = f"Phone Screen — {job.get('title', 'Interview')} with {candidate.get('full_name', 'Candidate')}"
+        description = (
+            f"Phone screening interview for the {job.get('title', '')} position "
+            f"at {job.get('organisation', '')}.\n\n"
+            f"Candidate: {candidate.get('full_name', '')} ({candidate_email})"
+        )
+
+        return gcal.create_interview_event(
+            service=service,
+            title=title,
+            description=description,
+            start_iso=slot["starts_at"],
+            end_iso=slot["ends_at"],
+            attendee_emails=attendees,
+        )
+    except Exception:  # noqa: BLE001
+        return {}

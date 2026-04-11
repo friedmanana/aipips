@@ -1,5 +1,8 @@
 strands-agents>=0.1.0
 resend>=2.0.0
+google-auth>=2.29.0
+google-auth-oauthlib>=1.2.0
+google-api-python-client>=2.126.0
 strands-agents-tools>=0.1.0
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0

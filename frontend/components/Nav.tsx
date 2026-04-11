@@ -9,6 +9,7 @@ export default function Nav() {
   const links = [
     { href: '/', label: 'Dashboard' },
     { href: '/jobs/new', label: 'New Job' },
+    { href: '/settings', label: 'Settings' },
   ]
 
   return (

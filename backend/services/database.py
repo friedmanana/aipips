@@ -603,3 +603,68 @@ def use_booking_token(token_id: str) -> dict:
         .execute()
     )
     return response.data[0] if response.data else {}
+
+
+# ---------------------------------------------------------------------------
+# Slot calendar fields
+# ---------------------------------------------------------------------------
+
+
+@_retryable
+def update_slot_calendar(slot_id: str, calendar_event_id: str | None, meet_link: str | None) -> dict:
+    """Persist Google Calendar event ID and Meet link on an interview slot."""
+    client = get_client()
+    update: dict = {}
+    if calendar_event_id:
+        update["calendar_event_id"] = calendar_event_id
+    if meet_link:
+        update["meet_link"] = meet_link
+    if not update:
+        return {}
+    response = (
+        client.table("interview_slots")
+        .update(update)
+        .eq("id", slot_id)
+        .execute()
+    )
+    return response.data[0] if response.data else {}
+
+
+# ---------------------------------------------------------------------------
+# Integrations CRUD  (Google Calendar OAuth tokens etc.)
+# ---------------------------------------------------------------------------
+
+
+@_retryable
+def save_integration(integration_dict: dict) -> dict:
+    """Upsert an integration record (keyed on provider)."""
+    client = get_client()
+    response = (
+        client.table("integrations")
+        .upsert(integration_dict, on_conflict="provider")
+        .execute()
+    )
+    return response.data[0]
+
+
+@_retryable
+def get_integration(provider: str) -> dict | None:
+    """Fetch an integration by provider name, or None if not connected."""
+    client = get_client()
+    response = (
+        client.table("integrations")
+        .select("*")
+        .eq("provider", provider)
+        .execute()
+    )
+    if response.data:
+        return response.data[0]
+    return None
+
+
+@_retryable
+def delete_integration(provider: str) -> bool:
+    """Remove an integration record."""
+    client = get_client()
+    client.table("integrations").delete().eq("provider", provider).execute()
+    return True
