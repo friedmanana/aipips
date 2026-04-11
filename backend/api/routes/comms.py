@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from agents.email_composer_agent import (
+    compose_phone_screen_invite_email,
+    compose_rejection_email,
+    compose_shortlist_invite_email,
+)
 from services import database as db
 from services.email_service import send_phone_screen_invite, send_rejection, send_shortlist_invite
 
@@ -99,6 +104,52 @@ def invite_batch(job_id: str, body: InviteBatchRequest) -> dict:
             errors.append({"candidate_id": cid, "error": str(exc)})
 
     return {"sent": len(sent), "errors": errors, "communications": sent}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/jobs/{job_id}/comms/preview
+# Returns a rendered email preview (no DB write, no send) so recruiters can
+# review the exact content before confirming a batch send.
+# ---------------------------------------------------------------------------
+
+_SAMPLE_CANDIDATE = {
+    "id": "preview",
+    "full_name": "the candidate",
+    "email": "candidate@example.com",
+}
+
+
+@router.get("/{job_id}/comms/preview")
+def preview_email(
+    job_id: str,
+    type: str = Query(..., description="REJECTION | SHORTLIST_INVITE | PHONE_SCREEN_INVITE"),
+    slot_ids: list[str] = Query(default=[]),
+) -> dict:
+    """Return the rendered subject + body for a given email type without sending."""
+    job = _job_or_404(job_id)
+
+    if type == "REJECTION":
+        composed = compose_rejection_email(_SAMPLE_CANDIDATE, job)
+    elif type == "SHORTLIST_INVITE":
+        composed = compose_shortlist_invite_email(_SAMPLE_CANDIDATE, job)
+    elif type == "PHONE_SCREEN_INVITE":
+        try:
+            all_slots = db.list_slots(job_id)
+        except RuntimeError:
+            all_slots = []
+        slots = [s for s in all_slots if s["id"] in slot_ids] if slot_ids else [s for s in all_slots if not s.get("is_booked")]
+        composed = compose_phone_screen_invite_email(
+            _SAMPLE_CANDIDATE, job, slots, booking_url="https://example.com/book/[token]"
+        )
+    else:
+        raise HTTPException(status_code=422, detail=f"Unknown type '{type}'")
+
+    return {
+        "type": type,
+        "subject": composed["subject"],
+        "body_html": composed["body_html"],
+        "body_text": composed["body_text"],
+    }
 
 
 # ---------------------------------------------------------------------------

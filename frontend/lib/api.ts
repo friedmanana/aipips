@@ -67,6 +67,18 @@ export const api = {
   listComms: (jobId: string) =>
     fetchAPI<Communication[]>(`/api/v1/jobs/${jobId}/comms`),
 
+  previewEmail: (
+    jobId: string,
+    type: 'REJECTION' | 'SHORTLIST_INVITE' | 'PHONE_SCREEN_INVITE',
+    slotIds: string[] = []
+  ) => {
+    const params = new URLSearchParams({ type })
+    slotIds.forEach((id) => params.append('slot_ids', id))
+    return fetchAPI<{ type: string; subject: string; body_html: string; body_text: string }>(
+      `/api/v1/jobs/${jobId}/comms/preview?${params}`
+    )
+  },
+
   rejectBatch: (jobId: string, candidateIds: string[]) =>
     fetchAPI<{ sent: number; errors: unknown[]; communications: Communication[] }>(
       `/api/v1/jobs/${jobId}/comms/reject-batch`,
