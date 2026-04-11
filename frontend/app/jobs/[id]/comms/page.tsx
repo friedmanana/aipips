@@ -123,12 +123,20 @@ function PreviewModal({ type, subject, bodyHtml, recipients, slotCount, sending,
                 </div>
                 <span className="text-xs text-slate-400 ml-1">Preview — uses "the candidate" as placeholder name</span>
               </div>
-              <iframe
-                srcDoc={bodyHtml}
-                title="Email preview"
-                className="w-full"
-                style={{ height: '340px', border: 'none' }}
-                sandbox="allow-same-origin"
+              {/* Render HTML directly — links are non-clickable via pointer-events:none */}
+              <div
+                className="overflow-y-auto bg-white"
+                style={{ maxHeight: '360px', pointerEvents: 'none', userSelect: 'text' }}
+                dangerouslySetInnerHTML={{
+                  __html: bodyHtml
+                    // strip outer html/head/body tags so page styles don't leak
+                    .replace(/<!DOCTYPE[^>]*>/i, '')
+                    .replace(/<html[^>]*>/i, '')
+                    .replace(/<\/html>/i, '')
+                    .replace(/<head>[\s\S]*?<\/head>/i, '')
+                    .replace(/<body[^>]*>/i, '<div style="font-family:Arial,sans-serif;padding:16px;">')
+                    .replace(/<\/body>/i, '</div>'),
+                }}
               />
             </div>
           </div>

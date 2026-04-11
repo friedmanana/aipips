@@ -139,7 +139,7 @@ def preview_email(
             all_slots = []
         slots = [s for s in all_slots if s["id"] in slot_ids] if slot_ids else [s for s in all_slots if not s.get("is_booked")]
         composed = compose_phone_screen_invite_email(
-            _SAMPLE_CANDIDATE, job, slots, booking_url="https://example.com/book/[token]"
+            _SAMPLE_CANDIDATE, job, slots, booking_url="#booking-link-preview"
         )
     else:
         raise HTTPException(status_code=422, detail=f"Unknown type '{type}'")
