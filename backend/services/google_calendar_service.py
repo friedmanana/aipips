@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # ---------------------------------------------------------------------------
@@ -54,47 +54,62 @@ def _client_config() -> dict:
 
 
 def get_auth_url(state: str = "") -> str:
-    """Return the Google OAuth2 consent URL for the recruiter to authorise."""
-    from google_auth_oauthlib.flow import Flow  # type: ignore[import]
+    """Return the Google OAuth2 consent URL (no PKCE — server-side flow)."""
+    from urllib.parse import urlencode
 
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES)
-    flow.redirect_uri = redirect_uri()
-    auth_url, _ = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",
-        state=state or "gcal",
-    )
-    return auth_url
+    params = {
+        "client_id": _client_id(),
+        "redirect_uri": redirect_uri(),
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": state or "gcal",
+        "include_granted_scopes": "true",
+    }
+    return f"{AUTH_URI}?{urlencode(params)}"
 
 
 def exchange_code(code: str) -> dict:
-    """Exchange an OAuth2 code for credentials. Returns token dict."""
-    from google_auth_oauthlib.flow import Flow  # type: ignore[import]
+    """Exchange an OAuth2 authorisation code for tokens via direct POST (no PKCE)."""
     import httpx
+    from datetime import timedelta
 
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES)
-    flow.redirect_uri = redirect_uri()
-    flow.fetch_token(code=code)
+    resp = httpx.post(
+        TOKEN_URI,
+        data={
+            "code": code,
+            "client_id": _client_id(),
+            "client_secret": _client_secret(),
+            "redirect_uri": redirect_uri(),
+            "grant_type": "authorization_code",
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    token_data = resp.json()
 
-    creds = flow.credentials
+    access_token = token_data["access_token"]
+    refresh_token = token_data.get("refresh_token", "")
+    expires_in = token_data.get("expires_in", 3600)
+    expiry = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
 
-    # Fetch the authorised user's email via userinfo endpoint
+    # Fetch user email
     try:
-        resp = httpx.get(
+        user_resp = httpx.get(
             "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {creds.token}"},
+            headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
-        user_email = resp.json().get("email", "") if resp.status_code == 200 else ""
+        user_email = user_resp.json().get("email", "") if user_resp.status_code == 200 else ""
     except Exception:
         user_email = ""
 
     return {
-        "access_token": creds.token,
-        "refresh_token": creds.refresh_token,
-        "token_expiry": creds.expiry.isoformat() if creds.expiry else None,
-        "scope": " ".join(creds.scopes or SCOPES),
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_expiry": expiry,
+        "scope": token_data.get("scope", " ".join(SCOPES)),
         "user_email": user_email,
     }
 
