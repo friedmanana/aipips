@@ -6,7 +6,6 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-
 # ---------------------------------------------------------------------------
 # Config helpers
 # ---------------------------------------------------------------------------
@@ -72,8 +71,9 @@ def get_auth_url(state: str = "") -> str:
 
 def exchange_code(code: str) -> dict:
     """Exchange an OAuth2 authorisation code for tokens via direct POST (no PKCE)."""
-    import httpx
     from datetime import timedelta
+
+    import httpx
 
     resp = httpx.post(
         TOKEN_URI,

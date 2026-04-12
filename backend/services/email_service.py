@@ -14,7 +14,6 @@ from agents.email_composer_agent import (
 )
 from services import database as db
 
-
 # ---------------------------------------------------------------------------
 # Config helpers
 # ---------------------------------------------------------------------------

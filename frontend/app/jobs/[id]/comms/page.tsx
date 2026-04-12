@@ -121,7 +121,7 @@ function PreviewModal({ type, subject, bodyHtml, recipients, slotCount, sending,
                   <div className="w-3 h-3 rounded-full bg-yellow-400" />
                   <div className="w-3 h-3 rounded-full bg-green-400" />
                 </div>
-                <span className="text-xs text-slate-400 ml-1">Preview — uses "Alex Smith" as placeholder name</span>
+                <span className="text-xs text-slate-400 ml-1">Preview — uses &quot;Alex Smith&quot; as placeholder name</span>
               </div>
               {/* Render HTML directly — links are non-clickable via pointer-events:none */}
               <div
