@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { ScreeningResult, Recommendation } from '@/types'
 import ScoreBadge from './ScoreBadge'
+import { api } from '@/lib/api'
 
 interface Props {
   result: ScreeningResult
   onClose: () => void
   onMove: (id: string, recommendation: Recommendation) => void
   onDelete: (id: string) => void
+  onContactSaved?: (candidateId: string, fields: { email?: string; phone?: string }) => void
 }
 
 const recConfig: Record<Recommendation, { label: string; color: string }> = {
@@ -39,6 +41,71 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Inline-editable contact field
+// ---------------------------------------------------------------------------
+
+function EditableContactField({
+  label, value, type = 'text', placeholder, onSave,
+}: {
+  label: string
+  value: string | undefined
+  type?: string
+  placeholder: string
+  onSave: (val: string) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const startEdit = () => { setDraft(value ?? ''); setEditing(true) }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try { await onSave(draft.trim()); setEditing(false) }
+    catch { /* ignore */ }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="flex px-4 py-3 gap-4 items-center">
+      <span className="text-xs text-slate-500 w-32 flex-shrink-0">{label}</span>
+      {editing ? (
+        <form onSubmit={handleSave} className="flex items-center gap-2 flex-1">
+          <input
+            autoFocus
+            type={type}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={placeholder}
+            className="flex-1 text-sm border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-300"
+          />
+          <button type="submit" disabled={saving}
+            className="text-xs text-white bg-indigo-600 px-2.5 py-1 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex-shrink-0">
+            {saving ? '…' : 'Save'}
+          </button>
+          <button type="button" onClick={() => setEditing(false)}
+            className="text-xs text-slate-400 hover:text-slate-600 flex-shrink-0">✕</button>
+        </form>
+      ) : value ? (
+        <button onClick={startEdit}
+          className="text-sm text-slate-800 hover:text-indigo-600 hover:underline text-left flex-1 group flex items-center gap-1.5">
+          {value}
+          <svg className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 16H9v-3z" />
+          </svg>
+        </button>
+      ) : (
+        <button onClick={startEdit}
+          className="text-sm text-slate-400 hover:text-indigo-600 hover:underline flex-1 text-left">
+          + Add {label.toLowerCase()}
+        </button>
+      )}
+    </div>
+  )
+}
+
 const TIER_ORDER: Recommendation[] = ['SHORTLIST', 'SECOND_ROUND', 'HOLD', 'DECLINE']
 const TIER_LABELS: Record<Recommendation, string> = {
   SHORTLIST: 'Shortlist',
@@ -47,13 +114,24 @@ const TIER_LABELS: Record<Recommendation, string> = {
   DECLINE: 'Decline',
 }
 
-export default function CandidateDetailModal({ result, onClose, onMove, onDelete }: Props) {
+export default function CandidateDetailModal({ result, onClose, onMove, onDelete, onContactSaved }: Props) {
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  // Local contact state so UI updates immediately without re-fetching
+  const [email, setEmail] = useState(result.email ?? '')
+  const [phone, setPhone] = useState(result.phone ?? '')
+
+  const saveContact = async (field: 'email' | 'phone', val: string) => {
+    await api.updateCandidateContact(result.candidate_id, { [field]: val })
+    if (field === 'email') setEmail(val)
+    if (field === 'phone') setPhone(val)
+    onContactSaved?.(result.candidate_id, { [field]: val })
+  }
 
   const rec = recConfig[result.recommendation] ?? { label: result.recommendation, color: 'bg-slate-100 text-slate-800' }
   const otherTiers = TIER_ORDER.filter((t) => t !== result.recommendation)
@@ -157,6 +235,20 @@ export default function CandidateDetailModal({ result, onClose, onMove, onDelete
           <div>
             <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Profile</h3>
             <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
+              <EditableContactField
+                label="Email"
+                value={email || undefined}
+                type="email"
+                placeholder="candidate@example.com"
+                onSave={(val) => saveContact('email', val)}
+              />
+              <EditableContactField
+                label="Phone"
+                value={phone || undefined}
+                type="tel"
+                placeholder="+64 21 000 0000"
+                onSave={(val) => saveContact('phone', val)}
+              />
               {result.years_experience != null && result.years_experience > 0 && (
                 <div className="flex px-4 py-3 gap-4">
                   <span className="text-xs text-slate-500 w-32 flex-shrink-0 pt-0.5">Experience</span>

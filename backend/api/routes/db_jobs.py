@@ -25,6 +25,11 @@ class UpdateRecommendationRequest(BaseModel):
 class UpdateCandidateEmailRequest(BaseModel):
     email: str
 
+
+class UpdateCandidateContactRequest(BaseModel):
+    email: str | None = None
+    phone: str | None = None
+
 router = APIRouter(prefix="/api/v1/jobs", tags=["jobs-persistent"])
 
 
@@ -268,6 +273,27 @@ def update_candidate_email(candidate_id: str, body: UpdateCandidateEmailRequest)
     """Update a candidate's email address."""
     try:
         return db.update_candidate_email(candidate_id, body.email.strip())
+    except RuntimeError as exc:
+        raise _handle_runtime_error(exc) from exc
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/v1/jobs/candidates/{candidate_id}/contact — update email + phone
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/candidates/{candidate_id}/contact")
+def update_candidate_contact(candidate_id: str, body: UpdateCandidateContactRequest) -> dict:
+    """Update a candidate's email and/or phone number."""
+    updates: dict = {}
+    if body.email is not None:
+        updates["email"] = body.email.strip()
+    if body.phone is not None:
+        updates["phone"] = body.phone.strip()
+    if not updates:
+        raise HTTPException(status_code=422, detail="Provide at least one of email or phone.")
+    try:
+        return db.update_candidate_contact(candidate_id, updates)
     except RuntimeError as exc:
         raise _handle_runtime_error(exc) from exc
 

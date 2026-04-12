@@ -70,6 +70,12 @@ export const api = {
       body: JSON.stringify({ email }),
     }),
 
+  updateCandidateContact: (candidateId: string, fields: { email?: string; phone?: string }) =>
+    fetchAPI(`/api/v1/jobs/candidates/${candidateId}/contact`, {
+      method: 'PATCH',
+      body: JSON.stringify(fields),
+    }),
+
   // --- Communications ---
   listComms: (jobId: string) =>
     fetchAPI<Communication[]>(`/api/v1/jobs/${jobId}/comms`),

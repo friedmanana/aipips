@@ -456,6 +456,12 @@ export default function JobDetailPage() {
         onClose={() => setSelectedCandidate(null)}
         onMove={handleMove}
         onDelete={handleDelete}
+        onContactSaved={(candidateId, fields) => {
+          setCandidates((prev) => prev.map((c) =>
+            c.candidate_id === candidateId ? { ...c, ...fields } : c
+          ))
+          setSelectedCandidate((prev) => prev ? { ...prev, ...fields } : prev)
+        }}
       />
     )}
 

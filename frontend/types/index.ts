@@ -25,6 +25,7 @@ export interface Candidate {
   id: string
   full_name: string
   email?: string
+  phone?: string
   location: string
   linkedin_url?: string
   source: CandidateSource
@@ -53,6 +54,7 @@ export interface ScreeningResult {
   // merged candidate fields
   full_name?: string
   email?: string
+  phone?: string
   current_title?: string
   current_organisation?: string
   location?: string
