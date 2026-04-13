@@ -4,9 +4,24 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  if (code) {
+  const tokenHash = searchParams.get('token_hash')
+  const type = searchParams.get('type') as 'email' | 'recovery' | 'magiclink' | null
+
+  try {
     const supabase = await createClient()
-    await supabase.auth.exchangeCodeForSession(code)
+
+    if (code) {
+      // OAuth / PKCE code exchange
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      if (error) console.error('Code exchange error:', error.message)
+    } else if (tokenHash && type) {
+      // Magic link / email confirmation
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+      if (error) console.error('OTP verify error:', error.message)
+    }
+  } catch (e) {
+    console.error('Auth callback error:', e)
   }
+
   return NextResponse.redirect(`${origin}/candidate/dashboard`)
 }
