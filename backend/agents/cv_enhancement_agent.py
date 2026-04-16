@@ -4,29 +4,28 @@ from __future__ import annotations
 import re
 
 
-def _call_llm(prompt: str) -> str:
-    """Call the LLM via strands Agent."""
-    try:
-        from strands import Agent  # type: ignore[import]
+_SYSTEM_PROMPT = (
+    "You are an expert NZ public sector career coach and CV writer. "
+    "You help candidates tailor their CVs and cover letters for NZ government roles. "
+    "You understand NZ public sector culture, Te Tiriti o Waitangi obligations, "
+    "the NZ public service values, and demonstrated competency frameworks. "
+    "Write in clear, professional New Zealand English. Be specific and avoid clichés."
+)
 
-        agent = Agent(
-            system_prompt=(
-                "You are an expert NZ public sector career coach and CV writer. "
-                "You help candidates tailor their CVs and cover letters for NZ government roles. "
-                "You understand NZ public sector culture, Te Tiriti o Waitangi obligations, "
-                "the NZ public service values, and demonstrated competency frameworks. "
-                "Write in clear, professional New Zealand English. Be specific and avoid clichés."
-            )
+
+def _call_llm(prompt: str) -> str:
+    """Call Claude via Anthropic SDK (uses ANTHROPIC_API_KEY env var)."""
+    try:
+        import anthropic  # type: ignore[import]
+
+        client = anthropic.Anthropic()
+        message = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=4096,
+            system=_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
         )
-        result = agent(prompt)
-        if hasattr(result, "message"):
-            content = result.message.get("content", [])
-            if isinstance(content, list):
-                return " ".join(
-                    c.get("text", "") for c in content if c.get("type") == "text"
-                )
-            return str(content)
-        return str(result)
+        return message.content[0].text
     except Exception as exc:
         raise RuntimeError(f"LLM call failed: {exc}") from exc
 
