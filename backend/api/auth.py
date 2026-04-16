@@ -26,6 +26,26 @@ def get_current_user(
     if not credentials:
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = credentials.credentials
+
+    # Try HS256 with JWT secret first (default for most Supabase projects)
+    jwt_secret = os.environ.get("SUPABASE_JWT_SECRET", "")
+    if jwt_secret:
+        try:
+            payload = jwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={"verify_exp": True},
+            )
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Token missing sub claim")
+            return {"user_id": user_id, "email": payload.get("email", "")}
+        except JWTError:
+            pass  # Fall through to RS256 JWKS
+
+    # Fall back to RS256 via JWKS
     try:
         jwks = _get_jwks()
         payload = jwt.decode(
