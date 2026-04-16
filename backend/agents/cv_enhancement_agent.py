@@ -38,22 +38,23 @@ def enhance_cv(
     job_description: str,
 ) -> tuple[str, str]:
     """Enhance a CV for a specific role. Returns (enhanced_text, enhanced_html)."""
-    has_jd = bool(job_description.strip())
+    at_company = f" at {company}" if company else ""
+    jd_section = "JOB DESCRIPTION:\n" + job_description + "\n\n" if job_description.strip() else ""
 
-    prompt = f"""Enhance and tailor the following CV for a {job_title} role{f' at {company}' if company else ''}.
-
-{'JOB DESCRIPTION:\n' + job_description + '\n\n' if has_jd else ''}ORIGINAL CV:
-{cv_text}
-
-Instructions:
-1. Restructure to highlight the most relevant experience for this role
-2. Use strong action verbs and quantify achievements where possible
-3. Mirror key terminology from the job description if provided
-4. Surface NZ public sector competencies where relevant (policy, stakeholder engagement, Treaty awareness, public service values)
-5. Ensure professional NZ English throughout
-6. Keep all facts accurate — do not invent experience
-
-Return ONLY the enhanced CV text ready to copy. Use clear section headings (PROFESSIONAL SUMMARY, EXPERIENCE, EDUCATION, SKILLS, KEY ACHIEVEMENTS). No commentary."""
+    prompt = (
+        f"Enhance and tailor the following CV for a {job_title} role{at_company}.\n\n"
+        f"{jd_section}"
+        f"ORIGINAL CV:\n{cv_text}\n\n"
+        "Instructions:\n"
+        "1. Restructure to highlight the most relevant experience for this role\n"
+        "2. Use strong action verbs and quantify achievements where possible\n"
+        "3. Mirror key terminology from the job description if provided\n"
+        "4. Surface NZ public sector competencies where relevant (policy, stakeholder engagement, Treaty awareness, public service values)\n"
+        "5. Ensure professional NZ English throughout\n"
+        "6. Keep all facts accurate — do not invent experience\n\n"
+        "Return ONLY the enhanced CV text ready to copy. Use clear section headings "
+        "(PROFESSIONAL SUMMARY, EXPERIENCE, EDUCATION, SKILLS, KEY ACHIEVEMENTS). No commentary."
+    )
 
     enhanced_text = _call_llm(prompt)
     return enhanced_text, _text_to_html(enhanced_text)
@@ -66,23 +67,24 @@ def generate_cover_letter(
     job_description: str,
 ) -> tuple[str, str]:
     """Generate a tailored cover letter. Returns (text, html)."""
-    has_jd = bool(job_description.strip())
+    at_company = f" at {company}" if company else ""
+    jd_section = "JOB DESCRIPTION:\n" + job_description + "\n\n" if job_description.strip() else ""
 
-    prompt = f"""Write a professional cover letter for a {job_title} role{f' at {company}' if company else ''}.
-
-{'JOB DESCRIPTION:\n' + job_description + '\n\n' if has_jd else ''}CANDIDATE CV:
-{cv_text}
-
-Requirements:
-- 3-4 paragraphs, professional but warm NZ tone
-- Opening paragraph: genuine interest in this specific role and organisation
-- Middle paragraphs: draw directly from the CV to demonstrate fit — be specific
-- Reference NZ public service values / Treaty obligations where genuinely relevant
-- Closing: confident, forward-looking call to action
-- Do NOT use "I am writing to apply for" as opening
-- Professional NZ English, no jargon
-
-Return ONLY the cover letter text starting with "Dear Hiring Manager," and ending with a sign-off line "[Your Name]". No commentary."""
+    prompt = (
+        f"Write a professional cover letter for a {job_title} role{at_company}.\n\n"
+        f"{jd_section}"
+        f"CANDIDATE CV:\n{cv_text}\n\n"
+        "Requirements:\n"
+        "- 3-4 paragraphs, professional but warm NZ tone\n"
+        "- Opening paragraph: genuine interest in this specific role and organisation\n"
+        "- Middle paragraphs: draw directly from the CV to demonstrate fit — be specific\n"
+        "- Reference NZ public service values / Treaty obligations where genuinely relevant\n"
+        "- Closing: confident, forward-looking call to action\n"
+        "- Do NOT use 'I am writing to apply for' as opening\n"
+        "- Professional NZ English, no jargon\n\n"
+        "Return ONLY the cover letter text starting with 'Dear Hiring Manager,' "
+        "and ending with a sign-off line '[Your Name]'. No commentary."
+    )
 
     cl_text = _call_llm(prompt)
     return cl_text, _text_to_html(cl_text)
