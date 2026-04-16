@@ -14,28 +14,33 @@ _SYSTEM_PROMPT = (
 
 
 def _call_llm(prompt: str) -> str:
-    """Call Gemini 2.0 Flash via REST API (uses GEMINI_API_KEY env var, free tier)."""
+    """Call Llama 3.3 70B via Groq API (uses GROQ_API_KEY env var, free tier)."""
     import os
     import httpx
 
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY not set")
+        raise RuntimeError("GROQ_API_KEY not set — add it in Render environment variables")
 
-    # Use v1 (stable) endpoint with gemini-2.0-flash
-    url = (
-        "https://generativelanguage.googleapis.com/v1/models"
-        f"/gemini-2.0-flash:generateContent?key={api_key}"
-    )
-    full_prompt = _SYSTEM_PROMPT + "\n\n" + prompt
+    url = "https://api.groq.com/openai/v1/chat/completions"
     body = {
-        "contents": [{"role": "user", "parts": [{"text": full_prompt}]}],
-        "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.7},
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": 4096,
+        "temperature": 0.7,
     }
     try:
-        resp = httpx.post(url, json=body, timeout=60)
+        resp = httpx.post(
+            url,
+            json=body,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=60,
+        )
         resp.raise_for_status()
-        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return resp.json()["choices"][0]["message"]["content"]
     except Exception as exc:
         raise RuntimeError(f"LLM call failed: {exc}") from exc
 
