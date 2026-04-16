@@ -14,18 +14,18 @@ _SYSTEM_PROMPT = (
 
 
 def _call_llm(prompt: str) -> str:
-    """Call Claude via Anthropic SDK (uses ANTHROPIC_API_KEY env var)."""
+    """Call Gemini via Google Generative AI SDK (uses GEMINI_API_KEY env var)."""
     try:
-        import anthropic  # type: ignore[import]
+        import os
+        import google.generativeai as genai  # type: ignore[import]
 
-        client = anthropic.Anthropic()
-        message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=4096,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=_SYSTEM_PROMPT,
         )
-        return message.content[0].text
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as exc:
         raise RuntimeError(f"LLM call failed: {exc}") from exc
 
