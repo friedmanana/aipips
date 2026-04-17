@@ -43,6 +43,7 @@ class UpsertInterviewPrepRequest(BaseModel):
     interview_date: str = ""
     interview_format: str = ""
     focus_areas: str = ""
+    interviewer_roles: str = ""
 
 
 class GenerateInterviewQARequest(BaseModel):
@@ -279,6 +280,7 @@ def generate_interview_qa_endpoint(app_id: str, user: dict = Depends(get_current
             job_description=app.get("job_description_text", ""),
             interview_format=prep.get("interview_format", ""),
             focus_areas=prep.get("focus_areas", ""),
+            interviewer_roles=prep.get("interviewer_roles", ""),
         )
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

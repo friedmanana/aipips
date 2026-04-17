@@ -82,9 +82,9 @@ export const candidateApi = {
     }),
 
   getInterviewPrep: (id: string) =>
-    fetchCandidate<{interview_date?: string, interview_format?: string, focus_areas?: string, generated_qa?: QAItem[]}>(`/api/v1/candidate/applications/${id}/interview-prep`),
+    fetchCandidate<{interview_format?: string, interviewer_roles?: string, focus_areas?: string, generated_qa?: QAItem[]}>(`/api/v1/candidate/applications/${id}/interview-prep`),
 
-  saveInterviewPrep: (id: string, data: {interview_date?: string, interview_format?: string, focus_areas?: string}) =>
+  saveInterviewPrep: (id: string, data: {interview_date?: string, interview_format?: string, focus_areas?: string, interviewer_roles?: string}) =>
     fetchCandidate(`/api/v1/candidate/applications/${id}/interview-prep`, {
       method: 'POST', body: JSON.stringify(data),
     }),

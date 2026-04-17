@@ -175,4 +175,5 @@ export interface QAItem {
   category: string
   question: string
   answer: string
+  tip?: string
 }

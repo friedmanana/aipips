@@ -220,8 +220,9 @@ def generate_interview_qa(
     job_description: str,
     interview_format: str,
     focus_areas: str,
+    interviewer_roles: str = "",
 ) -> list[dict]:
-    """Generate interview Q&A. Returns list of {question, answer, category} dicts."""
+    """Generate interview Q&A. Returns list of {question, answer, category, tip} dicts."""
     import json
     import re as _re
 
@@ -232,25 +233,48 @@ def generate_interview_qa(
         context_parts.append("CANDIDATE CV:\n" + cv_text)
     if interview_format.strip():
         context_parts.append("INTERVIEW FORMAT: " + interview_format)
+    if interviewer_roles.strip():
+        context_parts.append("INTERVIEWERS: " + interviewer_roles)
     if focus_areas.strip():
         context_parts.append("CANDIDATE NOTES ON FOCUS AREAS: " + focus_areas)
 
     context = "\n\n".join(context_parts)
     at_company = f" at {company}" if company else ""
 
+    interviewer_guidance = ""
+    if interviewer_roles.strip():
+        interviewer_guidance = (
+            f"\nThe interviewers are: {interviewer_roles}. "
+            "Tailor each question to what those specific people would care about most. "
+            "For the 'tip' field, give specific advice on how to frame the answer for that interviewer's "
+            "perspective — what they prioritise, what impresses them, and what to avoid.\n"
+        )
+    else:
+        interviewer_guidance = (
+            "\nFor the 'tip' field, give practical coaching advice: "
+            "what the interviewer is really trying to assess with this question, "
+            "what a strong answer looks like, and one common mistake to avoid.\n"
+        )
+
     prompt = (
-        f"Generate 10 likely interview questions for a {job_title} role{at_company}, "
-        "along with strong suggested answers tailored to this candidate.\n\n"
-        f"{context}\n\n"
+        f"Generate 12 likely interview questions for a {job_title} role{at_company}, "
+        "with strong suggested answers and coaching tips tailored to this candidate.\n\n"
+        f"{context}\n"
+        f"{interviewer_guidance}\n"
         "For each question provide:\n"
         "- category: one of 'Behavioural', 'Technical', 'Situational', 'Motivation', 'Values'\n"
-        "- question: the interview question\n"
-        "- answer: a strong 150-250 word suggested answer using STAR method where appropriate, "
-        "referencing specific details from the CV, written in first person\n\n"
-        "Return ONLY a JSON array with exactly this structure, no other text:\n"
-        '[{"category": "...", "question": "...", "answer": "..."}, ...]\n\n'
-        "Focus on NZ public sector competencies: policy analysis, stakeholder engagement, "
-        "Treaty of Waitangi obligations, public service values, evidence-based decision making."
+        "- question: the interview question exactly as the interviewer would ask it\n"
+        "- answer: a strong 180-250 word suggested answer using STAR method where appropriate, "
+        "referencing specific details from the CV, written in first person as the candidate. "
+        "Be specific — generic answers score poorly.\n"
+        "- tip: 2-3 sentences of coaching insight specific to this question — "
+        "what the interviewer is probing for, how to frame the answer for maximum impact, "
+        "and one thing to watch out for.\n\n"
+        "Return ONLY a JSON array, no other text:\n"
+        '[{"category": "...", "question": "...", "answer": "...", "tip": "..."}, ...]\n\n'
+        "Spread across NZ public sector competencies: policy analysis, stakeholder engagement, "
+        "Te Tiriti o Waitangi obligations, public service values, evidence-based decision making, "
+        "change management, relationship management, leadership."
     )
 
     raw = _call_llm(prompt)
@@ -263,7 +287,7 @@ def generate_interview_qa(
         except json.JSONDecodeError:
             pass
     # Fallback: return raw as single item
-    return [{"category": "General", "question": "Tell me about yourself.", "answer": raw}]
+    return [{"category": "General", "question": "Tell me about yourself.", "answer": raw, "tip": ""}]
 
 
 def _text_to_html(text: str) -> str:

@@ -89,8 +89,8 @@ export default function ApplicationWorkspace() {
   const [jobTitle, setJobTitle] = useState('')
   const [company, setCompany] = useState('')
 
-  const [interviewDate, setInterviewDate] = useState('')
   const [interviewFormat, setInterviewFormat] = useState('')
+  const [interviewerRoles, setInterviewerRoles] = useState('')
   const [focusAreas, setFocusAreas] = useState('')
   const [qaItems, setQaItems] = useState<QAItem[]>([])
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
@@ -129,8 +129,8 @@ export default function ApplicationWorkspace() {
     if (phase === 3 && !prepLoaded) {
       candidateApi.getInterviewPrep(id).then(prep => {
         if (prep) {
-          setInterviewDate(prep.interview_date ?? '')
           setInterviewFormat(prep.interview_format ?? '')
+          setInterviewerRoles(prep.interviewer_roles ?? '')
           setFocusAreas(prep.focus_areas ?? '')
           if (prep.generated_qa) setQaItems(prep.generated_qa)
         }
@@ -225,7 +225,7 @@ export default function ApplicationWorkspace() {
   const handleSavePrep = async () => {
     setSavingPrep(true); setError(null)
     try {
-      await candidateApi.saveInterviewPrep(id, { interview_date: interviewDate, interview_format: interviewFormat, focus_areas: focusAreas })
+      await candidateApi.saveInterviewPrep(id, { interview_format: interviewFormat, interviewer_roles: interviewerRoles, focus_areas: focusAreas })
       flash('Interview details saved')
     } catch (e) { setError(String(e)) }
     finally { setSavingPrep(false) }
@@ -707,8 +707,9 @@ export default function ApplicationWorkspace() {
               <p className="text-sm text-slate-500 mb-5">The more detail you add, the more tailored your questions will be</p>
 
               <div className="space-y-5">
+
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Interview Format</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Interview Format</label>
                   <select
                     value={interviewFormat}
                     onChange={e => setInterviewFormat(e.target.value)}
@@ -722,12 +723,28 @@ export default function ApplicationWorkspace() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Focus Areas</label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-semibold text-slate-700">Who will be interviewing you?</label>
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Optional</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-2">Knowing their role helps us tailor questions to what they care about most</p>
+                  <textarea
+                    value={interviewerRoles}
+                    onChange={e => setInterviewerRoles(e.target.value)}
+                    rows={3}
+                    placeholder={"e.g. Panel of 3: Hiring Manager, HR Business Partner, Senior Policy Advisor\n— or — Director of Strategy + two team leads\n— or — I don't know yet"}
+                    className="w-full px-4 py-3 border border-indigo-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed bg-indigo-50/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Focus Areas</label>
+                  <p className="text-xs text-slate-400 mb-2">What topics do you think will come up?</p>
                   <textarea
                     value={focusAreas}
                     onChange={e => setFocusAreas(e.target.value)}
-                    rows={6}
-                    placeholder="What do you think will be covered? e.g. stakeholder management, policy experience, Treaty of Waitangi knowledge, leadership…"
+                    rows={5}
+                    placeholder="e.g. stakeholder management, policy experience, Treaty of Waitangi knowledge, leadership, change management…"
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
                   />
                 </div>
@@ -795,6 +812,15 @@ export default function ApplicationWorkspace() {
                         {expandedIndex === index && (
                           <div className="px-5 pb-5 border-t border-slate-100 bg-slate-50/50">
                             <p className="text-base text-slate-700 leading-relaxed pt-4 whitespace-pre-wrap">{item.answer}</p>
+                            {item.tip && (
+                              <div className="mt-4 flex gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                                <span className="text-lg shrink-0">💡</span>
+                                <div>
+                                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Interviewer insight</p>
+                                  <p className="text-sm text-amber-800 leading-relaxed">{item.tip}</p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
