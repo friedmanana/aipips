@@ -48,7 +48,7 @@ export default function CandidateDashboard() {
           <div>
             <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight">My Applications</h1>
             <p className="text-indigo-200 text-lg">
-              AI-powered tools to help you land your next NZ public sector role
+              AI-powered tool to help you land your next role
             </p>
             {/* Phase guide */}
             <div className="flex items-center gap-3 mt-6 flex-wrap">
