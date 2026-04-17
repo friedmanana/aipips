@@ -29,7 +29,7 @@ def _call_llm(prompt: str) -> str:
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
-        "max_tokens": 4096,
+        "max_tokens": 8192,
         "temperature": 0.7,
     }
     try:
@@ -296,15 +296,34 @@ def generate_interview_qa(
 
     raw = _call_llm(prompt)
 
-    # Extract JSON array from response
+    # Try direct parse first
+    stripped = raw.strip()
+    if stripped.startswith('['):
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+
+    # Extract JSON array from anywhere in the response
     match = _re.search(r'\[.*\]', raw, _re.DOTALL)
     if match:
         try:
             return json.loads(match.group())
         except json.JSONDecodeError:
-            pass
-    # Fallback: return raw as single item
-    return [{"category": "General", "question": "Tell me about yourself.", "answer": raw, "tip": ""}]
+            # Try to salvage truncated JSON by finding complete objects
+            partial = match.group()
+            objects = _re.findall(r'\{[^{}]*\}', partial, _re.DOTALL)
+            results = []
+            for obj in objects:
+                try:
+                    results.append(json.loads(obj))
+                except json.JSONDecodeError:
+                    continue
+            if results:
+                return results
+
+    # Fallback: return error hint as single item so something shows
+    return [{"category": "General", "question": "Generation failed — please try again.", "answer": raw[:500] if raw else "No response received.", "tip": "If this keeps happening, reduce the total number of questions or try regenerating."}]
 
 
 def _text_to_html(text: str) -> str:

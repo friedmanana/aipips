@@ -719,7 +719,9 @@ export default function ApplicationWorkspace() {
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => {
             if (showStarredOnly && !item.starred) return false
-            if (activeCats.length > 0 && !activeCats.includes(item.category || 'General')) return false
+            // Only hide a category if it's a known type AND explicitly set to 0
+            const cat = item.category || 'General'
+            if (ALL_CATS.includes(cat) && (catCounts[cat] ?? 1) === 0) return false
             return true
           })
 
