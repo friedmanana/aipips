@@ -98,7 +98,6 @@ export default function ApplicationWorkspace() {
   const [qaItems, setQaItems] = useState<QAItem[]>([])
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [showStarredOnly, setShowStarredOnly] = useState(false)
-  const [topicFilter, setTopicFilter] = useState('')
   const [viewCats, setViewCats] = useState<string[]>([])
   const [prepLoaded, setPrepLoaded] = useState(false)
 
@@ -241,7 +240,6 @@ export default function ApplicationWorkspace() {
     await handleSavePrep()
     setGeneratingQA(true); setError(null)
     setShowStarredOnly(false)
-    setTopicFilter('')
     setViewCats([])
     try {
       const result = await candidateApi.generateInterviewQA(id, catCounts)
@@ -722,20 +720,12 @@ export default function ApplicationWorkspace() {
         const setCatCount = (cat: string, val: number) =>
           setCatCounts(prev => ({ ...prev, [cat]: Math.max(0, Math.min(10, val)) }))
 
-        const topicLower = topicFilter.trim().toLowerCase()
-
         const visibleItems = qaItems
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => {
             if (showStarredOnly && !item.starred) return false
-            // Right-side category view filter (empty = show all)
             const cat = item.category || 'General'
             if (viewCats.length > 0 && !viewCats.includes(cat)) return false
-            // Topic text filter
-            if (topicLower) {
-              const haystack = `${item.question} ${item.answer} ${item.tip ?? ''}`.toLowerCase()
-              if (!haystack.includes(topicLower)) return false
-            }
             return true
           })
 
@@ -883,26 +873,6 @@ export default function ApplicationWorkspace() {
                 </div>
               ) : (
                 <>
-                  {/* Topic filter */}
-                  <div className="relative">
-                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input
-                      type="text"
-                      value={topicFilter}
-                      onChange={e => setTopicFilter(e.target.value)}
-                      placeholder="Filter by topic… e.g. stakeholder, Treaty, leadership, budget"
-                      className="w-full pl-10 pr-10 py-3 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent shadow-sm"
-                    />
-                    {topicFilter && (
-                      <button
-                        onClick={() => setTopicFilter('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg leading-none"
-                      >×</button>
-                    )}
-                  </div>
-
                   {/* Category filter pills */}
                   {resultCats.length > 1 && (
                     <div className="flex flex-wrap gap-2">
@@ -941,7 +911,6 @@ export default function ApplicationWorkspace() {
                   <div className="flex items-center justify-between px-1">
                     <p className="text-sm text-slate-500">
                       Showing <span className="font-semibold text-slate-700">{visibleItems.length}</span> of {qaItems.length} questions
-                      {topicFilter && <span className="text-indigo-500"> · "{topicFilter}"</span>}
                       {starredCount > 0 && !showStarredOnly && ` · ${starredCount} ⭐ starred`}
                     </p>
                     <div className="flex items-center gap-2">
@@ -957,9 +926,9 @@ export default function ApplicationWorkspace() {
                           ⭐ Starred only
                         </button>
                       )}
-                      {(viewCats.length > 0 || showStarredOnly || topicFilter) && (
+                      {(viewCats.length > 0 || showStarredOnly) && (
                         <button
-                          onClick={() => { setViewCats([]); setShowStarredOnly(false); setTopicFilter('') }}
+                          onClick={() => { setViewCats([]); setShowStarredOnly(false) }}
                           className="text-xs text-slate-400 hover:text-slate-600 underline"
                         >
                           Reset filters
@@ -1030,7 +999,7 @@ export default function ApplicationWorkspace() {
                     <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-400">
                       <p className="text-base font-medium">No questions match the current filters</p>
                       <button
-                        onClick={() => { setViewCats([]); setShowStarredOnly(false); setTopicFilter('') }}
+                        onClick={() => { setViewCats([]); setShowStarredOnly(false) }}
                         className="mt-2 text-sm text-indigo-500 hover:underline"
                       >
                         Reset filters
