@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import re
 
-
 _SYSTEM_PROMPT = (
     "You are an expert NZ public sector career coach and CV writer. "
     "You help candidates tailor their CVs and cover letters for NZ government roles. "
@@ -16,6 +15,7 @@ _SYSTEM_PROMPT = (
 def _call_llm(prompt: str) -> str:
     """Call Llama 3.3 70B via Groq API (uses GROQ_API_KEY env var, free tier)."""
     import os
+
     import httpx
 
     api_key = os.environ.get("GROQ_API_KEY", "")
@@ -102,6 +102,59 @@ def generate_cover_letter(
 
     cl_text = _call_llm(prompt)
     return cl_text, _text_to_html(cl_text)
+
+
+def generate_interview_qa(
+    cv_text: str,
+    job_title: str,
+    company: str,
+    job_description: str,
+    interview_format: str,
+    focus_areas: str,
+) -> list[dict]:
+    """Generate interview Q&A. Returns list of {question, answer, category} dicts."""
+    import json
+    import re as _re
+
+    context_parts = []
+    if job_description.strip():
+        context_parts.append("JOB DESCRIPTION:\n" + job_description)
+    if cv_text.strip():
+        context_parts.append("CANDIDATE CV:\n" + cv_text)
+    if interview_format.strip():
+        context_parts.append("INTERVIEW FORMAT: " + interview_format)
+    if focus_areas.strip():
+        context_parts.append("CANDIDATE NOTES ON FOCUS AREAS: " + focus_areas)
+
+    context = "\n\n".join(context_parts)
+    at_company = f" at {company}" if company else ""
+
+    prompt = (
+        f"Generate 10 likely interview questions for a {job_title} role{at_company}, "
+        "along with strong suggested answers tailored to this candidate.\n\n"
+        f"{context}\n\n"
+        "For each question provide:\n"
+        "- category: one of 'Behavioural', 'Technical', 'Situational', 'Motivation', 'Values'\n"
+        "- question: the interview question\n"
+        "- answer: a strong 150-250 word suggested answer using STAR method where appropriate, "
+        "referencing specific details from the CV, written in first person\n\n"
+        "Return ONLY a JSON array with exactly this structure, no other text:\n"
+        '[{"category": "...", "question": "...", "answer": "..."}, ...]\n\n'
+        "Focus on NZ public sector competencies: policy analysis, stakeholder engagement, "
+        "Treaty of Waitangi obligations, public service values, evidence-based decision making."
+    )
+
+    raw = _call_llm(prompt)
+
+    # Extract JSON array from response
+    match = _re.search(r'\[.*\]', raw, _re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+    # Fallback: return raw as single item
+    return [{"category": "General", "question": "Tell me about yourself.", "answer": raw}]
 
 
 def _text_to_html(text: str) -> str:

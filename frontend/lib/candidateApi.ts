@@ -1,4 +1,4 @@
-import type { JobApplication, CvDocument, CoverLetter, CandidateProfile } from '@/types'
+import type { JobApplication, CvDocument, CoverLetter, CandidateProfile, QAItem } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -61,4 +61,17 @@ export const candidateApi = {
 
   generateCoverLetter: (id: string) =>
     fetchCandidate<CoverLetter>(`/api/v1/candidate/applications/${id}/cover-letter`, { method: 'POST' }),
+
+  getInterviewPrep: (id: string) =>
+    fetchCandidate<{interview_date?: string, interview_format?: string, focus_areas?: string, generated_qa?: QAItem[]}>(`/api/v1/candidate/applications/${id}/interview-prep`),
+
+  saveInterviewPrep: (id: string, data: {interview_date?: string, interview_format?: string, focus_areas?: string}) =>
+    fetchCandidate(`/api/v1/candidate/applications/${id}/interview-prep`, {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+
+  generateInterviewQA: (id: string) =>
+    fetchCandidate<{qa: QAItem[]}>(`/api/v1/candidate/applications/${id}/generate-interview-qa`, {
+      method: 'POST',
+    }),
 }

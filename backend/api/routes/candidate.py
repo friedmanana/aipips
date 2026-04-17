@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from agents.cv_enhancement_agent import enhance_cv, generate_cover_letter
+from agents.cv_enhancement_agent import enhance_cv, generate_cover_letter, generate_interview_qa
 from api.auth import get_current_user
 from services import database as db
 
@@ -31,6 +31,16 @@ class UpsertProfileRequest(BaseModel):
 
 class UploadCvRequest(BaseModel):
     content_text: str
+
+
+class UpsertInterviewPrepRequest(BaseModel):
+    interview_date: str = ""
+    interview_format: str = ""
+    focus_areas: str = ""
+
+
+class GenerateInterviewQARequest(BaseModel):
+    pass  # uses stored data
 
 
 @router.get("/profile")
@@ -150,9 +160,47 @@ def generate_cover_letter_route(app_id: str, user: dict = Depends(get_current_us
     return db.upsert_cover_letter({"application_id": app_id, "content_text": cl_text, "content_html": cl_html})
 
 
-def _verify_ownership(app_id: str, user_id: str) -> None:
-    if db.get_job_application(app_id, user_id) is None:
+@router.get("/applications/{app_id}/interview-prep")
+def get_interview_prep(app_id: str, user: dict = Depends(get_current_user)):
+    _verify_ownership(app_id, user["user_id"])
+    prep = db.get_interview_prep(app_id)
+    return prep or {}
+
+
+@router.post("/applications/{app_id}/interview-prep")
+def upsert_interview_prep(app_id: str, req: UpsertInterviewPrepRequest, user: dict = Depends(get_current_user)):
+    _verify_ownership(app_id, user["user_id"])
+    return db.upsert_interview_prep(app_id, req.model_dump())
+
+
+@router.post("/applications/{app_id}/generate-interview-qa")
+def generate_interview_qa_endpoint(app_id: str, user: dict = Depends(get_current_user)):
+    app = _verify_ownership(app_id, user["user_id"])
+    cv = db.get_latest_cv(app_id, "ENHANCED") or db.get_latest_cv(app_id, "ORIGINAL")
+    prep = db.get_interview_prep(app_id) or {}
+
+    try:
+        qa = generate_interview_qa(
+            cv_text=cv["content_text"] if cv else "",
+            job_title=app.get("job_title", ""),
+            company=app.get("company", ""),
+            job_description=app.get("job_description_text", ""),
+            interview_format=prep.get("interview_format", ""),
+            focus_areas=prep.get("focus_areas", ""),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # Save generated QA back to prep
+    db.upsert_interview_prep(app_id, {"generated_qa": qa})
+    return {"qa": qa}
+
+
+def _verify_ownership(app_id: str, user_id: str) -> dict:
+    app = db.get_job_application(app_id, user_id)
+    if app is None:
         raise HTTPException(status_code=403, detail="Forbidden")
+    return app
 
 
 def _ensure_profile(user: dict) -> None:

@@ -170,3 +170,9 @@ export interface CoverLetter {
   content_html: string
   created_at: string
 }
+
+export interface QAItem {
+  category: string
+  question: string
+  answer: string
+}

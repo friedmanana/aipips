@@ -839,3 +839,42 @@ def get_cover_letter(app_id: str) -> dict | None:
         .execute()
     )
     return response.data[0] if response.data else None
+
+
+@_retryable
+def get_interview_prep(application_id: str) -> dict | None:
+    """Return the interview prep record for an application, or None."""
+    try:
+        resp = (
+            get_client()
+            .table("interview_preps")
+            .select("*")
+            .eq("application_id", application_id)
+            .maybe_single()
+            .execute()
+        )
+        return resp.data
+    except Exception:
+        return None
+
+
+@_retryable
+def upsert_interview_prep(application_id: str, data: dict) -> dict:
+    """Insert or update interview prep data for an application."""
+    existing = get_interview_prep(application_id)
+    if existing:
+        resp = (
+            get_client()
+            .table("interview_preps")
+            .update({**data, "updated_at": "now()"})
+            .eq("application_id", application_id)
+            .execute()
+        )
+    else:
+        resp = (
+            get_client()
+            .table("interview_preps")
+            .insert({"application_id": application_id, **data})
+            .execute()
+        )
+    return resp.data[0]
