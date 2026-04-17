@@ -626,17 +626,6 @@ export default function ApplicationWorkspace() {
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Interview Date</label>
-                  <input
-                    type="text"
-                    value={interviewDate}
-                    onChange={e => setInterviewDate(e.target.value)}
-                    placeholder="e.g. Thursday 24 April, 2pm"
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Interview Format</label>
                   <select
                     value={interviewFormat}
