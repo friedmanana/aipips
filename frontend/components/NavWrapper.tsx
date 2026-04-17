@@ -6,6 +6,7 @@ import Nav from '@/components/Nav'
 export default function NavWrapper() {
   const pathname = usePathname()
   const isCandidatePage = pathname.startsWith('/candidate')
-  if (isCandidatePage) return null
+  const isHomePage = pathname === '/'
+  if (isCandidatePage || isHomePage) return null
   return <Nav />
 }

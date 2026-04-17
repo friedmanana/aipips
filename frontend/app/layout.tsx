@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PubSec Recruiter NZ",
-  description: "Public sector recruitment platform for New Zealand",
+  title: "AIPips — AI tools for everyone",
+  description: "A growing suite of AI-powered tools for hiring, writing, research, and more.",
 };
 
 export default function RootLayout({
