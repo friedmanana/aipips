@@ -221,6 +221,7 @@ def generate_interview_qa(
     interview_format: str,
     focus_areas: str,
     interviewer_roles: str = "",
+    num_questions: int = 12,
 ) -> list[dict]:
     """Generate interview Q&A. Returns list of {question, answer, category, tip} dicts."""
     import json
@@ -257,7 +258,7 @@ def generate_interview_qa(
         )
 
     prompt = (
-        f"Generate 12 likely interview questions for a {job_title} role{at_company}, "
+        f"Generate exactly {num_questions} likely interview questions for a {job_title} role{at_company}, "
         "with strong suggested answers and coaching tips tailored to this candidate.\n\n"
         f"{context}\n"
         f"{interviewer_guidance}\n"

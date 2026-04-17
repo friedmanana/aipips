@@ -176,4 +176,5 @@ export interface QAItem {
   question: string
   answer: string
   tip?: string
+  starred?: boolean
 }

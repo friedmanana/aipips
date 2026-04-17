@@ -89,8 +89,13 @@ export const candidateApi = {
       method: 'POST', body: JSON.stringify(data),
     }),
 
-  generateInterviewQA: (id: string) =>
+  generateInterviewQA: (id: string, num_questions: number) =>
     fetchCandidate<{qa: QAItem[]}>(`/api/v1/candidate/applications/${id}/generate-interview-qa`, {
-      method: 'POST',
+      method: 'POST', body: JSON.stringify({ num_questions }),
+    }),
+
+  saveQA: (id: string, qa: QAItem[]) =>
+    fetchCandidate(`/api/v1/candidate/applications/${id}/interview-prep`, {
+      method: 'POST', body: JSON.stringify({ generated_qa: qa }),
     }),
 }

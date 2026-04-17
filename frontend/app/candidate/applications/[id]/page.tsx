@@ -92,8 +92,11 @@ export default function ApplicationWorkspace() {
   const [interviewFormat, setInterviewFormat] = useState('')
   const [interviewerRoles, setInterviewerRoles] = useState('')
   const [focusAreas, setFocusAreas] = useState('')
+  const [numQuestions, setNumQuestions] = useState(12)
   const [qaItems, setQaItems] = useState<QAItem[]>([])
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+  const [activeCats, setActiveCats] = useState<string[]>([])
+  const [showStarredOnly, setShowStarredOnly] = useState(false)
   const [prepLoaded, setPrepLoaded] = useState(false)
 
   const [savingCv, setSavingCv] = useState(false)
@@ -234,11 +237,20 @@ export default function ApplicationWorkspace() {
   const handleGenerateQA = async () => {
     await handleSavePrep()
     setGeneratingQA(true); setError(null)
+    setActiveCats([]); setShowStarredOnly(false)
     try {
-      const result = await candidateApi.generateInterviewQA(id)
+      const result = await candidateApi.generateInterviewQA(id, numQuestions)
       setQaItems(result.qa); setExpandedIndex(0)
     } catch (e) { setError(String(e)) }
     finally { setGeneratingQA(false) }
+  }
+
+  const handleToggleStar = async (index: number) => {
+    const updated = qaItems.map((item, i) =>
+      i === index ? { ...item, starred: !item.starred } : item
+    )
+    setQaItems(updated)
+    try { await candidateApi.saveQA(id, updated) } catch { /* silent */ }
   }
 
   const handleCopy = async (text: string, key: 'cv' | 'cl') => {
@@ -260,13 +272,6 @@ export default function ApplicationWorkspace() {
   if (!app) return <div className="text-center py-16 text-slate-500 text-lg">Application not found.</div>
 
   const canEnhance = cvInput.trim().length > 0
-
-  const groupedQA = qaItems.reduce<Record<string, { item: QAItem; index: number }[]>>((acc, item, i) => {
-    const cat = item.category || 'General'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push({ item, index: i })
-    return acc
-  }, {})
 
   return (
     <div className="max-w-7xl mx-auto px-2">
@@ -698,140 +703,273 @@ export default function ApplicationWorkspace() {
       )}
 
       {/* ── Phase 3: Interview Prep ── */}
-      {phase === 3 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* LEFT — form */}
-          <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900 mb-1">Interview Details</h2>
-              <p className="text-sm text-slate-500 mb-5">The more detail you add, the more tailored your questions will be</p>
+      {phase === 3 && (() => {
+        const allCats = [...new Set(qaItems.map(q => q.category || 'General'))]
+        const starredCount = qaItems.filter(q => q.starred).length
 
-              <div className="space-y-5">
+        const visibleItems = qaItems
+          .map((item, index) => ({ item, index }))
+          .filter(({ item }) => {
+            if (showStarredOnly && !item.starred) return false
+            if (activeCats.length > 0 && !activeCats.includes(item.category || 'General')) return false
+            return true
+          })
 
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Interview Format</label>
-                  <select
-                    value={interviewFormat}
-                    onChange={e => setInterviewFormat(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="">Select format…</option>
-                    {INTERVIEW_FORMATS.map(f => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
-                  </select>
-                </div>
+        const groupedVisible = visibleItems.reduce<Record<string, { item: QAItem; index: number }[]>>((acc, { item, index }) => {
+          const cat = item.category || 'General'
+          if (!acc[cat]) acc[cat] = []
+          acc[cat].push({ item, index })
+          return acc
+        }, {})
 
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <label className="text-sm font-semibold text-slate-700">Who will be interviewing you?</label>
-                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Optional</span>
+        const toggleCat = (cat: string) =>
+          setActiveCats(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])
+
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* LEFT — form */}
+            <div className="space-y-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <h2 className="text-lg font-bold text-slate-900 mb-1">Interview Details</h2>
+                <p className="text-sm text-slate-500 mb-5">The more detail you add, the more tailored your questions will be</p>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Interview Format</label>
+                    <select
+                      value={interviewFormat}
+                      onChange={e => setInterviewFormat(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="">Select format…</option>
+                      {INTERVIEW_FORMATS.map(f => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
                   </div>
-                  <p className="text-xs text-slate-400 mb-2">Knowing their role helps us tailor questions to what they care about most</p>
-                  <textarea
-                    value={interviewerRoles}
-                    onChange={e => setInterviewerRoles(e.target.value)}
-                    rows={3}
-                    placeholder={"e.g. Panel of 3: Hiring Manager, HR Business Partner, Senior Policy Advisor\n— or — Director of Strategy + two team leads\n— or — I don't know yet"}
-                    className="w-full px-4 py-3 border border-indigo-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed bg-indigo-50/30"
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Focus Areas</label>
-                  <p className="text-xs text-slate-400 mb-2">What topics do you think will come up?</p>
-                  <textarea
-                    value={focusAreas}
-                    onChange={e => setFocusAreas(e.target.value)}
-                    rows={5}
-                    placeholder="e.g. stakeholder management, policy experience, Treaty of Waitangi knowledge, leadership, change management…"
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
-                  />
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-sm font-semibold text-slate-700">Who will be interviewing you?</label>
+                      <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Optional</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mb-2">Knowing their role helps us tailor questions to what they care about most</p>
+                    <textarea
+                      value={interviewerRoles}
+                      onChange={e => setInterviewerRoles(e.target.value)}
+                      rows={3}
+                      placeholder={"e.g. Panel of 3: Hiring Manager, HR Business Partner, Senior Policy Advisor\n— or — Director of Strategy + two team leads\n— or — I don't know yet"}
+                      className="w-full px-4 py-3 border border-indigo-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed bg-indigo-50/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Focus Areas</label>
+                    <p className="text-xs text-slate-400 mb-2">What topics do you think will come up?</p>
+                    <textarea
+                      value={focusAreas}
+                      onChange={e => setFocusAreas(e.target.value)}
+                      rows={5}
+                      placeholder="e.g. stakeholder management, policy experience, Treaty of Waitangi knowledge, leadership, change management…"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Number of questions */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3">Questions to generate</p>
+                <div className="flex gap-2 flex-wrap">
+                  {[5, 8, 10, 12, 15, 20].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setNumQuestions(n)}
+                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                        numQuestions === n
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleGenerateQA}
+                disabled={generatingQA}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-base font-bold rounded-2xl transition-colors flex items-center justify-center gap-3 shadow-md"
+              >
+                {generatingQA ? (
+                  <><Spinner />Generating {numQuestions} questions… (~30s)</>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {qaItems.length > 0 ? `↻ Regenerate (${numQuestions} questions)` : `🎯 Generate ${numQuestions} Questions`}
+                  </>
+                )}
+              </button>
+
+              {!originalCv && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <p className="text-sm text-amber-700 font-medium">Add your CV in Phase 1 for more personalised questions</p>
+                </div>
+              )}
             </div>
 
-            <button
-              onClick={handleGenerateQA}
-              disabled={generatingQA}
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-base font-bold rounded-2xl transition-colors flex items-center justify-center gap-3 shadow-md"
-            >
-              {generatingQA ? (
-                <><Spinner />Generating your questions… (~30s)</>
+            {/* RIGHT — Q&A with filters */}
+            <div className="space-y-4">
+              {qaItems.length === 0 ? (
+                <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center text-slate-300">
+                  <svg className="w-14 h-14 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-base font-semibold">Your interview questions will appear here</p>
+                  <p className="text-sm mt-1">Fill in your details and click Generate</p>
+                </div>
               ) : (
                 <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {qaItems.length > 0 ? '↻ Regenerate Questions' : '🎯 Generate Interview Questions'}
-                </>
-              )}
-            </button>
+                  {/* Filter bar */}
+                  <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3.5 shadow-sm">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wide mr-1">Filter</span>
 
-            {!originalCv && (
-              <div className="text-center bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                <p className="text-sm text-amber-700 font-medium">Add your CV in Phase 1 for more personalised questions</p>
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT — Q&A */}
-          <div className="space-y-5">
-            {qaItems.length === 0 ? (
-              <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-16 text-center text-slate-300">
-                <svg className="w-14 h-14 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-base font-semibold">Your interview questions will appear here</p>
-                <p className="text-sm mt-1">Fill in your details and click Generate</p>
-              </div>
-            ) : (
-              Object.entries(groupedQA).map(([category, items]) => (
-                <div key={category}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className={`text-sm font-bold px-3 py-1 rounded-full ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.General}`}>
-                      {category}
-                    </span>
-                    <span className="text-sm text-slate-400">{items.length} question{items.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="space-y-3">
-                    {items.map(({ item, index }) => (
-                      <div key={index} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                        <button
-                          className="w-full px-5 py-4 text-left flex items-start justify-between gap-4 hover:bg-slate-50 transition-colors"
-                          onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                        >
-                          <span className="text-base font-semibold text-slate-800 leading-snug">{item.question}</span>
-                          <svg
-                            className={`w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5 transition-transform ${expandedIndex === index ? 'rotate-180' : ''}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                      {/* Category pills */}
+                      {allCats.map(cat => {
+                        const count = qaItems.filter(q => (q.category || 'General') === cat).length
+                        const isActive = activeCats.includes(cat)
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => toggleCat(cat)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                              isActive
+                                ? `${CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.General} border-transparent shadow-sm scale-105`
+                                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                            }`}
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
+                            {cat}
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${isActive ? 'bg-white/60' : 'bg-slate-100'}`}>
+                              {count}
+                            </span>
+                          </button>
+                        )
+                      })}
+
+                      {/* Starred filter */}
+                      {starredCount > 0 && (
+                        <button
+                          onClick={() => setShowStarredOnly(!showStarredOnly)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                            showStarredOnly
+                              ? 'bg-amber-100 text-amber-700 border-amber-300 shadow-sm scale-105'
+                              : 'bg-white text-slate-500 border-slate-200 hover:border-amber-300 hover:text-amber-600'
+                          }`}
+                        >
+                          ⭐ Starred
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${showStarredOnly ? 'bg-amber-200' : 'bg-slate-100'}`}>
+                            {starredCount}
+                          </span>
                         </button>
-                        {expandedIndex === index && (
-                          <div className="px-5 pb-5 border-t border-slate-100 bg-slate-50/50">
-                            <p className="text-base text-slate-700 leading-relaxed pt-4 whitespace-pre-wrap">{item.answer}</p>
-                            {item.tip && (
-                              <div className="mt-4 flex gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                                <span className="text-lg shrink-0">💡</span>
-                                <div>
-                                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Interviewer insight</p>
-                                  <p className="text-sm text-amber-800 leading-relaxed">{item.tip}</p>
-                                </div>
+                      )}
+
+                      {/* Clear filters */}
+                      {(activeCats.length > 0 || showStarredOnly) && (
+                        <button
+                          onClick={() => { setActiveCats([]); setShowStarredOnly(false) }}
+                          className="ml-auto text-xs text-slate-400 hover:text-slate-600 underline"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-2 text-xs text-slate-400">
+                      Showing {visibleItems.length} of {qaItems.length} questions
+                      {starredCount > 0 && !showStarredOnly && ` · ${starredCount} starred`}
+                    </div>
+                  </div>
+
+                  {/* Q&A grouped by category */}
+                  {Object.entries(groupedVisible).map(([category, items]) => (
+                    <div key={category}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className={`text-sm font-bold px-3 py-1 rounded-full ${CATEGORY_COLORS[category] ?? CATEGORY_COLORS.General}`}>
+                          {category}
+                        </span>
+                        <span className="text-sm text-slate-400">{items.length} question{items.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="space-y-3">
+                        {items.map(({ item, index }) => (
+                          <div
+                            key={index}
+                            className={`bg-white rounded-xl overflow-hidden shadow-sm border transition-all ${
+                              item.starred ? 'border-amber-300 shadow-amber-100' : 'border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3 px-5 py-4 hover:bg-slate-50 transition-colors">
+                              {/* Star button */}
+                              <button
+                                onClick={() => handleToggleStar(index)}
+                                className={`shrink-0 mt-0.5 text-xl leading-none transition-transform hover:scale-125 ${item.starred ? 'text-amber-400' : 'text-slate-200 hover:text-amber-300'}`}
+                                title={item.starred ? 'Unstar' : 'Star this question'}
+                              >
+                                {item.starred ? '★' : '☆'}
+                              </button>
+
+                              {/* Question + expand toggle */}
+                              <button
+                                className="flex-1 text-left flex items-start justify-between gap-3"
+                                onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                              >
+                                <span className="text-base font-semibold text-slate-800 leading-snug">{item.question}</span>
+                                <svg
+                                  className={`w-5 h-5 text-slate-400 shrink-0 mt-0.5 transition-transform ${expandedIndex === index ? 'rotate-180' : ''}`}
+                                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            {expandedIndex === index && (
+                              <div className="px-5 pb-5 border-t border-slate-100 bg-slate-50/50">
+                                <p className="text-base text-slate-700 leading-relaxed pt-4 whitespace-pre-wrap">{item.answer}</p>
+                                {item.tip && (
+                                  <div className="mt-4 flex gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                                    <span className="text-lg shrink-0">💡</span>
+                                    <div>
+                                      <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Interviewer insight</p>
+                                      <p className="text-sm text-amber-800 leading-relaxed">{item.tip}</p>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
+                    </div>
+                  ))}
+
+                  {visibleItems.length === 0 && (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-400">
+                      <p className="text-base font-medium">No questions match the current filters</p>
+                      <button onClick={() => { setActiveCats([]); setShowStarredOnly(false) }} className="mt-2 text-sm text-indigo-500 hover:underline">
+                        Clear filters
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

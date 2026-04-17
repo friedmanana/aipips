@@ -47,7 +47,7 @@ class UpsertInterviewPrepRequest(BaseModel):
 
 
 class GenerateInterviewQARequest(BaseModel):
-    pass  # uses stored data
+    num_questions: int = 12
 
 
 class GenerateCvRequest(BaseModel):
@@ -267,7 +267,7 @@ def upsert_interview_prep(app_id: str, req: UpsertInterviewPrepRequest, user: di
 
 
 @router.post("/applications/{app_id}/generate-interview-qa")
-def generate_interview_qa_endpoint(app_id: str, user: dict = Depends(get_current_user)):
+def generate_interview_qa_endpoint(app_id: str, body: GenerateInterviewQARequest = GenerateInterviewQARequest(), user: dict = Depends(get_current_user)):
     app = _verify_ownership(app_id, user["user_id"])
     cv = db.get_latest_cv(app_id, "ENHANCED") or db.get_latest_cv(app_id, "ORIGINAL")
     prep = db.get_interview_prep(app_id) or {}
@@ -281,11 +281,11 @@ def generate_interview_qa_endpoint(app_id: str, user: dict = Depends(get_current
             interview_format=prep.get("interview_format", ""),
             focus_areas=prep.get("focus_areas", ""),
             interviewer_roles=prep.get("interviewer_roles", ""),
+            num_questions=body.num_questions,
         )
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    # Save generated QA back to prep
     db.upsert_interview_prep(app_id, {"generated_qa": qa})
     return {"qa": qa}
 
