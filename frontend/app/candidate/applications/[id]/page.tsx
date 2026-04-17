@@ -99,6 +99,7 @@ export default function ApplicationWorkspace() {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [showStarredOnly, setShowStarredOnly] = useState(false)
   const [topicFilter, setTopicFilter] = useState('')
+  const [viewCats, setViewCats] = useState<string[]>([])
   const [prepLoaded, setPrepLoaded] = useState(false)
 
   const [savingCv, setSavingCv] = useState(false)
@@ -241,6 +242,7 @@ export default function ApplicationWorkspace() {
     setGeneratingQA(true); setError(null)
     setShowStarredOnly(false)
     setTopicFilter('')
+    setViewCats([])
     try {
       const result = await candidateApi.generateInterviewQA(id, catCounts)
       setQaItems(result.qa); setExpandedIndex(0)
@@ -711,8 +713,11 @@ export default function ApplicationWorkspace() {
         const totalQuestions = Object.values(catCounts).reduce((a, b) => a + b, 0)
         const starredCount = qaItems.filter(q => q.starred).length
 
-        // cats with count > 0 act as the post-generation filter too
-        const activeCats = ALL_CATS.filter(c => (catCounts[c] ?? 0) > 0)
+        // cats actually present in generated results
+        const resultCats = [...new Set(qaItems.map(q => q.category || 'General'))]
+
+        const toggleViewCat = (cat: string) =>
+          setViewCats(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])
 
         const setCatCount = (cat: string, val: number) =>
           setCatCounts(prev => ({ ...prev, [cat]: Math.max(0, Math.min(10, val)) }))
@@ -723,9 +728,9 @@ export default function ApplicationWorkspace() {
           .map((item, index) => ({ item, index }))
           .filter(({ item }) => {
             if (showStarredOnly && !item.starred) return false
-            // Only hide a category if it's a known type AND explicitly set to 0
+            // Right-side category view filter (empty = show all)
             const cat = item.category || 'General'
-            if (ALL_CATS.includes(cat) && (catCounts[cat] ?? 1) === 0) return false
+            if (viewCats.length > 0 && !viewCats.includes(cat)) return false
             // Topic text filter
             if (topicLower) {
               const haystack = `${item.question} ${item.answer} ${item.tip ?? ''}`.toLowerCase()
@@ -898,6 +903,40 @@ export default function ApplicationWorkspace() {
                     )}
                   </div>
 
+                  {/* Category filter pills */}
+                  {resultCats.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {resultCats.map(cat => {
+                        const isActive = viewCats.includes(cat)
+                        const count = qaItems.filter(q => (q.category || 'General') === cat).length
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => toggleViewCat(cat)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                              isActive
+                                ? `${CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.General} border-transparent shadow-sm scale-105`
+                                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                            }`}
+                          >
+                            {cat}
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${isActive ? 'bg-white/60' : 'bg-slate-100'}`}>
+                              {count}
+                            </span>
+                          </button>
+                        )
+                      })}
+                      {viewCats.length > 0 && (
+                        <button
+                          onClick={() => setViewCats([])}
+                          className="text-xs text-slate-400 hover:text-slate-600 underline self-center ml-1"
+                        >
+                          Show all
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {/* Slim results header */}
                   <div className="flex items-center justify-between px-1">
                     <p className="text-sm text-slate-500">
@@ -918,13 +957,9 @@ export default function ApplicationWorkspace() {
                           ⭐ Starred only
                         </button>
                       )}
-                      {(activeCats.length > 0 || showStarredOnly || topicFilter) && (
+                      {(viewCats.length > 0 || showStarredOnly || topicFilter) && (
                         <button
-                          onClick={() => {
-                            setCatCounts({ Behavioural: 3, Technical: 2, Situational: 2, Motivation: 2, Values: 1 })
-                            setShowStarredOnly(false)
-                            setTopicFilter('')
-                          }}
+                          onClick={() => { setViewCats([]); setShowStarredOnly(false); setTopicFilter('') }}
                           className="text-xs text-slate-400 hover:text-slate-600 underline"
                         >
                           Reset filters
@@ -995,11 +1030,7 @@ export default function ApplicationWorkspace() {
                     <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-400">
                       <p className="text-base font-medium">No questions match the current filters</p>
                       <button
-                        onClick={() => {
-                          setCatCounts({ Behavioural: 3, Technical: 2, Situational: 2, Motivation: 2, Values: 1 })
-                          setShowStarredOnly(false)
-                          setTopicFilter('')
-                        }}
+                        onClick={() => { setViewCats([]); setShowStarredOnly(false); setTopicFilter('') }}
                         className="mt-2 text-sm text-indigo-500 hover:underline"
                       >
                         Reset filters
