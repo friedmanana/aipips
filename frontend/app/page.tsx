@@ -98,12 +98,8 @@ export default function HubPage() {
             <Logo size="lg" />
           </div>
           <h1 className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tight mb-5 leading-tight">
-            AI that actually<br />
-            <span className="text-indigo-600">gets things done</span>
+            AI tools that make common sense
           </h1>
-          <p className="text-lg text-slate-500 max-w-md mx-auto">
-            Purpose-built AI tools for hiring, writing, and beyond.
-          </p>
         </div>
 
         {/* Live apps */}
@@ -166,7 +162,7 @@ export default function HubPage() {
             <div>
               <Logo size="sm" />
               <p className="text-sm text-slate-400 mt-2 max-w-xs">
-                Purpose-built AI tools designed to save you time and help you do your best work.
+                AI tools that make common sense.
               </p>
             </div>
             <div className="flex flex-col sm:items-end gap-1 text-sm text-slate-400">
