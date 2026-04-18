@@ -23,5 +23,6 @@ export async function GET(request: Request) {
     console.error('Auth callback error:', e)
   }
 
-  return NextResponse.redirect(`${origin}/candidate/dashboard`)
+  const next = new URL(request.url).searchParams.get('next') ?? '/candidate/dashboard'
+  return NextResponse.redirect(`${origin}${next}`)
 }
