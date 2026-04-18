@@ -107,6 +107,16 @@ def update_job(job_id: str, body: UpdateJobRequest) -> dict:
         raise _handle_runtime_error(exc) from exc
 
 
+@router.delete("/{job_id}")
+def delete_job(job_id: str) -> dict:
+    """Delete a job and all its screening results."""
+    try:
+        db.delete_job(job_id)
+    except RuntimeError as exc:
+        raise _handle_runtime_error(exc) from exc
+    return {"deleted": True}
+
+
 @router.get("/{job_id}")
 def get_job(job_id: str) -> dict:
     """Return a single job by ID, or 404 if not found."""

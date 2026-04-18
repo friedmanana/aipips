@@ -282,6 +282,15 @@ def list_jobs(status: str | None = None) -> list[dict]:
 
 
 @_retryable
+def delete_job(job_id: str) -> bool:
+    """Delete a job and all related screening results."""
+    client = get_client()
+    client.table("screening_results").delete().eq("job_id", job_id).execute()
+    client.table("jobs").delete().eq("id", job_id).execute()
+    return True
+
+
+@_retryable
 def update_job_status(job_id: str, status: str) -> dict:
     """Update the status field of a job.
 
