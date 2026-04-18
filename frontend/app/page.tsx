@@ -10,7 +10,7 @@ const APPS = [
       {
         label: 'Hiring Manager',
         description: 'Post jobs, screen candidates, manage your pipeline',
-        href: '/jobs/new',
+        href: '/jobs/login',
         icon: (
           <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />

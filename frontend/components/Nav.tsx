@@ -39,7 +39,7 @@ export default function Nav() {
 
           <div className="flex items-center gap-1">
             <Link
-              href="/jobs/new"
+              href="/jobs/login"
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 pathname.startsWith('/jobs') ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
