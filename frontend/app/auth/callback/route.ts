@@ -6,16 +6,15 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type') as 'email' | 'recovery' | 'magiclink' | null
+  const next = searchParams.get('next') ?? '/candidate/dashboard'
 
   try {
     const supabase = await createClient()
 
     if (code) {
-      // OAuth / PKCE code exchange
       const { error } = await supabase.auth.exchangeCodeForSession(code)
       if (error) console.error('Code exchange error:', error.message)
     } else if (tokenHash && type) {
-      // Magic link / email confirmation
       const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
       if (error) console.error('OTP verify error:', error.message)
     }
@@ -23,6 +22,10 @@ export async function GET(request: Request) {
     console.error('Auth callback error:', e)
   }
 
-  const next = new URL(request.url).searchParams.get('next') ?? '/candidate/dashboard'
+  // For password recovery, always go to reset-password page
+  if (type === 'recovery') {
+    return NextResponse.redirect(`${origin}/reset-password`)
+  }
+
   return NextResponse.redirect(`${origin}${next}`)
 }
