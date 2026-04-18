@@ -207,7 +207,7 @@ def _sanitise_job(job_dict: dict) -> dict:
         "id", "title", "organisation", "department", "location",
         "salary_band", "employment_type", "closing_date", "overview",
         "responsibilities", "required_skills", "preferred_skills",
-        "qualifications", "competencies", "status", "raw_jd_text",
+        "qualifications", "competencies", "status", "raw_text",
     }
     return {k: v for k, v in job.items() if k in allowed}
 

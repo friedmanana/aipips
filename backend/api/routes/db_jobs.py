@@ -446,6 +446,9 @@ def run_pipeline(body: RunFullPipelineRequest) -> FullPipelineResponse:
         raise HTTPException(status_code=422, detail=f"Pipeline failed: {exc}") from exc
 
     job_dict = result.get("job", {})
+    # Always persist the original JD text so it can be edited later
+    if body.raw_jd_text:
+        job_dict["raw_text"] = body.raw_jd_text
 
     try:
         saved_job = db.save_job(job_dict)
