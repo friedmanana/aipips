@@ -120,6 +120,41 @@ def _sanitise_job(job_dict: dict) -> dict:
         ).isoformat()
     elif isinstance(raw_date, datetime):
         job["closing_date"] = raw_date.isoformat()
+    else:
+        # Try to parse natural language dates like "Friday, 30 May 2025." or "30 May 2025"
+        parsed = None
+        clean = str(raw_date).strip().rstrip(".")
+        # Try common formats
+        for fmt in (
+            "%Y-%m-%d",
+            "%d %B %Y",
+            "%B %d, %Y",
+            "%A, %d %B %Y",
+            "%d/%m/%Y",
+            "%m/%d/%Y",
+            "%d-%m-%Y",
+        ):
+            try:
+                parsed = datetime.strptime(clean, fmt).replace(tzinfo=timezone.utc)
+                break
+            except ValueError:
+                continue
+        if parsed is None:
+            # Try dateutil as a fallback if available
+            try:
+                from dateutil import parser as dateutil_parser
+                parsed = dateutil_parser.parse(clean, dayfirst=True)
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+            except Exception:
+                parsed = None
+        if parsed:
+            job["closing_date"] = parsed.isoformat()
+        else:
+            # Can't parse — default to 28 days from now
+            job["closing_date"] = (
+                datetime.now(timezone.utc) + timedelta(days=28)
+            ).isoformat()
 
     # Strip common label prefixes that JD parsers leave in the title
     # e.g. "Position: Senior Policy Advisor" → "Senior Policy Advisor"
