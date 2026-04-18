@@ -19,6 +19,7 @@ export interface Job {
   competencies: string[]
   status: JobStatus
   created_at: string
+  raw_text?: string
 }
 
 export interface Candidate {
