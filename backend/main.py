@@ -19,8 +19,8 @@ from db.migrate import run_migrations
 run_migrations()
 
 app = FastAPI(
-    title="PubSec Recruiter NZ",
-    description="AI-powered recruitment platform for NZ public sector organisations",
+    title="AI Pips",
+    description="AI-powered recruitment and career tools platform",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",

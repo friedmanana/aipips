@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: pubsec-recruiter-nz-backend
+    name: aipips-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend

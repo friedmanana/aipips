@@ -1,5 +1,5 @@
 -- ============================================================
--- PubSec Recruiter NZ — Initial Schema
+-- AI Pips — Initial Schema
 -- Migration: 001_initial_schema.sql
 -- ============================================================
 

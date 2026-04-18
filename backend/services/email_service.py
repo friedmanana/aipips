@@ -31,7 +31,7 @@ def _get_resend():
 
 
 def _from_address() -> str:
-    return os.getenv("RESEND_FROM", "recruitment@pubsec-recruiter.nz")
+    return os.getenv("RESEND_FROM", "recruitment@aipips.com")
 
 
 def _frontend_url() -> str:

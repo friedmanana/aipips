@@ -1,6 +1,6 @@
-# PubSec Recruiter NZ
+# AI Pips
 
-AI-powered recruitment platform for NZ public sector organisations — replacing recruitment agencies with intelligent, fair, and transparent candidate matching.
+AI-powered recruitment and career tools platform — replacing recruitment agencies with intelligent, fair, and transparent candidate matching.
 
 ## Architecture
 
