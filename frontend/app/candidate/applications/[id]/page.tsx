@@ -287,15 +287,18 @@ function ApplicationWorkspace() {
           <Link href="/candidate/dashboard" className="text-base text-slate-500 hover:text-slate-700">
             ← My Applications
           </Link>
-          <div className="flex items-center gap-3 mt-3">
+          <div className="flex items-center gap-3 mt-3 flex-wrap">
             <input
               value={jobTitle}
               onChange={e => setJobTitle(e.target.value)}
               onBlur={handleSaveJob}
-              placeholder="Job Title"
-              className="text-2xl font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-400 focus:outline-none"
+              placeholder="Add job title…"
+              className={`text-2xl font-bold text-slate-900 bg-transparent focus:outline-none min-w-[220px] ${
+                jobTitle
+                  ? 'border-b border-transparent hover:border-slate-300 focus:border-indigo-400'
+                  : 'border-b-2 border-dashed border-indigo-300 focus:border-indigo-500 placeholder:text-indigo-300'
+              }`}
             />
-            {company && <span className="text-slate-400 text-xl">·</span>}
             <input
               value={company}
               onChange={e => setCompany(e.target.value)}
