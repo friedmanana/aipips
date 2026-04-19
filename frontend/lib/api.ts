@@ -54,14 +54,16 @@ export const api = {
     fetchAPI<ScreeningResult[]>(`/api/v1/jobs/${jobId}/results`),
 
   sourceAndScreen: async (jobId: string) => {
-    await fetchAPI(`/api/v1/jobs/${jobId}/source`, {
+    const sourceResult = await fetchAPI<{ total_platform?: number; total_external?: number; total_scored?: number }>(`/api/v1/jobs/${jobId}/source`, {
       method: 'POST',
       body: JSON.stringify({}),
     })
-    return fetchAPI(`/api/v1/jobs/${jobId}/screen`, {
+    const screenResult = await fetchAPI<{ total_screened?: number }>(`/api/v1/jobs/${jobId}/screen`, {
       method: 'POST',
       body: JSON.stringify({}),
     })
+    // Merge so caller can see both platform count and screened count
+    return { ...screenResult, ...sourceResult }
   },
 
   sourceAndScreenSourceOnly: (jobId: string) =>

@@ -87,10 +87,15 @@ function JobDetailPage() {
     setSourcingStatus(null)
     try {
       setSourcingStatus('searching')
-      const sourced = await api.sourceAndScreen(id) as { total_sourced?: number; total_screened?: number }
+      const sourced = await api.sourceAndScreen(id) as { total_screened?: number; total_platform?: number; total_external?: number; total_scored?: number }
       await loadData()
-      const found = sourced?.total_sourced ?? sourced?.total_screened ?? 0
-      setSourcingStatus(found > 0 ? `Found ${found} candidate${found !== 1 ? 's' : ''}` : 'no_results')
+      const platform = sourced?.total_platform ?? 0
+      const screened = sourced?.total_screened ?? sourced?.total_scored ?? 0
+      const found = platform + screened
+      const parts: string[] = []
+      if (platform > 0) parts.push(`${platform} from AI Pips`)
+      if (screened > 0) parts.push(`${screened - platform > 0 ? screened - platform : screened} external`)
+      setSourcingStatus(found > 0 ? `Found ${found} candidate${found !== 1 ? 's' : ''}${parts.length ? ` (${parts.join(', ')})` : ''}` : 'no_results')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err))
       setSourcingStatus(null)
@@ -369,9 +374,9 @@ function JobDetailPage() {
           {/* Sourcing status banner */}
           {sourcingStatus === 'no_results' && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <p className="font-medium">LinkedIn X-Ray search returned 0 candidates</p>
+              <p className="font-medium">No candidates found this run</p>
               <p className="mt-1 text-amber-700">
-                DuckDuckGo didn&apos;t find matching LinkedIn profiles right now — this is common for NZ roles.
+                LinkedIn X-Ray search returned nothing right now — this is common for NZ roles.
                 Try <strong>Re-run Sourcing</strong> again later, or use the <strong>Upload CVs</strong> option to screen candidates directly.
               </p>
             </div>

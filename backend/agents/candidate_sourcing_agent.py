@@ -304,12 +304,31 @@ def run_sourcing(job: dict) -> dict:
     try:
         from services.database import get_platform_candidates_with_cvs
         platform_candidates = get_platform_candidates_with_cvs()
+        print(f"[sourcing] platform candidates from DB: {len(platform_candidates)}")
         for candidate in platform_candidates:
-            score = _score_platform_candidate(candidate, job_requirements)
+            try:
+                score = _score_platform_candidate(candidate, job_requirements)
+            except Exception as score_err:
+                print(f"[sourcing] scoring failed for {candidate.get('full_name')}: {score_err}")
+                # Still include candidate with a default score if AI scoring fails
+                score = {
+                    "profile_id": candidate.get("profile_id", ""),
+                    "name": candidate.get("full_name", "Unknown"),
+                    "email": candidate.get("email", ""),
+                    "current_title": candidate.get("current_title", ""),
+                    "cv_text": candidate.get("cv_text", ""),
+                    "source": "PLATFORM",
+                    "url": "",
+                    "estimated_match_score": 50,
+                    "reasoning": "AI scoring unavailable — manual review recommended.",
+                    "recommended_action": "REVIEW",
+                    "extracted_skills": [],
+                    "years_experience": 0,
+                }
             if score.get("recommended_action") != "SKIP":
                 internal_scored.append(score)
-    except Exception:
-        pass  # Degrade gracefully if DB unavailable
+    except Exception as db_err:
+        print(f"[sourcing] platform sourcing DB error: {db_err}")  # visible in Render logs
 
     # ------------------------------------------------------------------ #
     # 3. Merge, sort, split                                               #

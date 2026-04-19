@@ -51,6 +51,8 @@ class SourcingResponse(BaseModel):
     organisation: str
     total_found: int
     total_scored: int
+    total_platform: int = 0
+    total_external: int = 0
     shortlisted: list[dict]
     for_review: list[dict]
     all_scored: list[dict]
