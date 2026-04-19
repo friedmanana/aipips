@@ -6,10 +6,8 @@ import re
 
 import httpx
 from duckduckgo_search import DDGS
-from strands import tool
 
 
-@tool
 def search_linkedin_profiles(
     job_title: str,
     skills: list[str],
@@ -38,7 +36,7 @@ def search_linkedin_profiles(
     return results
 
 
-@tool
+
 def refine_candidate_search(
     job_description: str,
     existing_results: list[dict],
@@ -74,7 +72,7 @@ def refine_candidate_search(
     return new_results
 
 
-@tool
+
 def score_candidate_from_snippet(
     candidate_snippet: dict,
     job_requirements: dict,
