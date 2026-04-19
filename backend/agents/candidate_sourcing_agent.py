@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 
+import httpx
 from duckduckgo_search import DDGS
-from strands import Agent, tool
+from strands import tool
 
 
 @tool
@@ -100,34 +102,22 @@ Respond with a JSON object containing:
 
 JSON only, no other text."""
 
-    scoring_agent = Agent(
-        system_prompt="You are a NZ public sector recruitment specialist. Return only valid JSON."
+    response_text = _call_groq(
+        system="You are a NZ public sector recruitment specialist. Return only valid JSON.",
+        user=prompt,
     )
-    response = scoring_agent(prompt)
-    response_text = str(response)
 
     try:
         json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        if json_match:
-            scored = json.loads(json_match.group())
-        else:
-            scored = {
-                "estimated_match_score": 0,
-                "reasoning": "Unable to parse scoring response.",
-                "recommended_action": "REVIEW",
-            }
+        scored = json.loads(json_match.group()) if json_match else {}
     except (json.JSONDecodeError, AttributeError):
-        scored = {
-            "estimated_match_score": 0,
-            "reasoning": "Unable to parse scoring response.",
-            "recommended_action": "REVIEW",
-        }
+        scored = {}
 
     return {
         "name": candidate_snippet.get("name", "Unknown"),
         "url": candidate_snippet.get("url", ""),
         "estimated_match_score": scored.get("estimated_match_score", 0),
-        "reasoning": scored.get("reasoning", ""),
+        "reasoning": scored.get("reasoning", "Unable to parse scoring response."),
         "recommended_action": scored.get("recommended_action", "REVIEW"),
     }
 
@@ -168,30 +158,27 @@ def _extract_skills_from_text(text: str) -> list[str]:
     return found
 
 
-candidate_sourcing_agent = Agent(
-    system_prompt="""You are an expert NZ public sector recruitment specialist with deep knowledge of:
-
-- New Zealand government structure including central government agencies (e.g. MBIE, MSD, Treasury, DPMC, MfE, NZTA), Crown entities, DHBs/Te Whatu Ora, and local authorities (Auckland Council, Wellington City Council, Christchurch City Council)
-- Te Tiriti o Waitangi and its implications for public sector employment, including the Crown's obligations and what genuine bicultural capability looks like in practice
-- NZ public sector competency frameworks including the Leadership Success Profile and SFIA for ICT roles
-- The Wellington, Auckland, and Christchurch labour markets for professional and technical roles
-- NZ-specific employment platforms: Seek NZ, Trade Me Jobs, LinkedIn, and government job boards (careers.govt.nz, smartjobs.nz)
-- NZ public sector values: integrity, accountability, stewardship, transparency, and service to New Zealanders
-- Tikanga Māori, te ao Māori, and kaupapa Māori principles as they apply to public sector recruitment
-- Salary bands and remuneration norms for NZ public sector roles at different levels
-- The importance of community connection and local knowledge in regional NZ roles
-
-When sourcing candidates:
-1. Always consider cultural capability alongside technical skills — Te Tiriti commitment is non-negotiable in NZ public sector
-2. Look for evidence of public sector values even in private sector candidates
-3. Prioritise candidates with NZ experience and understanding of the NZ context
-4. Consider transferability of skills from adjacent sectors (health, education, not-for-profit, iwi organisations)
-5. Be mindful of equity — actively look for Māori, Pasifika, and diverse candidates
-6. Assess whether candidates understand NZ-specific frameworks (Whānau Ora, Enabling Good Lives, etc.) where relevant
-
-Use the available tools systematically: start with a broad LinkedIn X-Ray search, refine with targeted skill searches, then score each candidate against the specific role requirements.""",
-    tools=[search_linkedin_profiles, refine_candidate_search, score_candidate_from_snippet],
-)
+def _call_groq(system: str, user: str, max_tokens: int = 2048) -> str:
+    """Call Llama 3.3 70B via Groq API — same approach as cv_enhancement_agent."""
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY not set — add it in Render environment variables")
+    resp = httpx.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        json={
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": 0.3,
+        },
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
 
 
 def _score_platform_candidate(candidate: dict, job_requirements: dict) -> dict:
@@ -236,10 +223,10 @@ Respond with a JSON object only:
 
 JSON only, no other text."""
 
-    scoring_agent = Agent(
-        system_prompt="You are a senior recruitment specialist. Assess candidates on genuine skill overlap and transferable experience, not keyword matching. Return only valid JSON."
+    response_text = _call_groq(
+        system="You are a senior recruitment specialist. Assess candidates on genuine skill overlap and transferable experience, not keyword matching. Return only valid JSON.",
+        user=prompt,
     )
-    response_text = str(scoring_agent(prompt))
 
     try:
         json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
