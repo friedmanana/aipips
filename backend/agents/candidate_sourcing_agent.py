@@ -18,7 +18,7 @@ import re
 import httpx
 from duckduckgo_search import DDGS
 
-from core.agent import AgentTool, GroqAgent, agent_tool
+from core.agent import agent_tool
 
 
 # ---------------------------------------------------------------------------
@@ -197,38 +197,6 @@ Return JSON only:
 
 
 # ---------------------------------------------------------------------------
-# Agent definition
-# ---------------------------------------------------------------------------
-
-_SYSTEM_PROMPT = """You are an expert NZ public sector recruitment specialist.
-
-Your job: find and score the best candidates for a given role using the tools available.
-
-Strategy:
-1. ALWAYS call get_platform_candidates() first — internal AI Pips users are high-value leads
-2. Search LinkedIn with search_linkedin_profiles() using the role title and key skills
-3. Score ALL candidates (both platform and LinkedIn) using score_candidate()
-4. Focus on SEMANTIC skill overlap, not exact title matching
-5. A data scientist can be great for an AI engineer role — look for transferable skills
-
-NZ public sector context:
-- Te Tiriti o Waitangi commitment matters
-- Wellington, Auckland, Christchurch are the main labour markets
-- Look for NZ citizenship/residency (often required for security clearance)
-- Public sector values: integrity, accountability, stewardship, service
-
-After scoring all candidates, summarise your findings: how many found, how many shortlisted,
-and the top candidates with their scores and reasoning."""
-
-_sourcing_agent = GroqAgent(
-    system_prompt=_SYSTEM_PROMPT,
-    tools=[search_linkedin_profiles, get_platform_candidates, score_candidate],
-    max_iterations=20,
-    temperature=0.2,
-)
-
-
-# ---------------------------------------------------------------------------
 # Public interface — called by the API route
 # ---------------------------------------------------------------------------
 
@@ -251,23 +219,11 @@ def run_sourcing(job: dict) -> dict:
         "overview": job.get("overview", ""),
     }
 
-    user_message = (
-        f"Find and score candidates for this role:\n\n"
-        f"Role: {job_title}\n"
-        f"Organisation: {organisation}\n"
-        f"Requirements: {json.dumps(job_requirements, indent=2)}\n\n"
-        f"Use all available tools. Score every candidate you find."
-    )
-
     print(f"[sourcing] starting agent for: {job_title}")
 
-    # Run the agent — it decides what to do
-    _sourcing_agent.run(user_message)
-
-    # After the agent loop, collect scored candidates from tool call results
-    # by re-fetching them. The agent has already called score_candidate for each.
-    # We reconstruct the results from what was passed to score_candidate.
-    all_scored = _collect_scored_candidates(_sourcing_agent, user_message, job_requirements)
+    # Collect and score candidates directly — calling tool functions without
+    # the agent loop avoids duplicate Groq calls and 429 rate-limit errors.
+    all_scored = _collect_scored_candidates(job_requirements)
 
     all_scored.sort(key=lambda x: x.get("estimated_match_score", 0), reverse=True)
     shortlisted = [c for c in all_scored if c.get("recommended_action") == "SHORTLIST"]
@@ -289,7 +245,7 @@ def run_sourcing(job: dict) -> dict:
     }
 
 
-def _collect_scored_candidates(agent: GroqAgent, user_message: str, job_requirements: dict) -> list[dict]:
+def _collect_scored_candidates(job_requirements: dict) -> list[dict]:
     """
     Run a focused scoring pass: fetch all candidates directly and score them.
     This ensures we always have structured results regardless of how the agent
@@ -325,7 +281,7 @@ def _collect_scored_candidates(agent: GroqAgent, user_message: str, job_requirem
             job_title=job_requirements.get("title", ""),
             skills=job_requirements.get("required_skills", []),
             location=job_requirements.get("location", "New Zealand"),
-            max_results=10,
+            max_results=5,
         )
         job_req_str = json.dumps(job_requirements)
         for c in linkedin_results:

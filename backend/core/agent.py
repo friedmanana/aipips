@@ -85,8 +85,11 @@ def _groq_chat(
     tools: list[dict] | None = None,
     temperature: float = 0.2,
     max_tokens: int = 4096,
+    _retry: int = 0,
 ) -> dict:
-    """Send a chat request to Groq and return the raw response dict."""
+    """Send a chat request to Groq with automatic retry on 429 rate-limit."""
+    import time
+
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
         raise RuntimeError("GROQ_API_KEY not set — add it in Render environment variables")
@@ -107,6 +110,14 @@ def _groq_chat(
         headers={"Authorization": f"Bearer {api_key}"},
         timeout=120,
     )
+
+    # Retry on 429 with exponential backoff (max 3 retries)
+    if resp.status_code == 429 and _retry < 3:
+        wait = 20 * (2 ** _retry)   # 20s, 40s, 80s
+        print(f"[groq] 429 rate-limit — waiting {wait}s then retrying (attempt {_retry + 1}/3)")
+        time.sleep(wait)
+        return _groq_chat(messages, tools, temperature, max_tokens, _retry + 1)
+
     resp.raise_for_status()
     return resp.json()
 
