@@ -1,15 +1,31 @@
+"""
+Job Description Analyst Agent — agentic, Groq-powered.
+
+The agent autonomously:
+  1. Parses the raw JD text into structured fields (regex-based, fast)
+  2. Validates completeness against NZ public sector standards
+  3. Enriches missing fields using NZ context rules
+  4. Uses Groq (Llama 3.3 70B) to fill gaps that regex can't handle —
+     e.g. inferring skills from a vague JD, writing a missing overview, etc.
+
+Tools are registered with @agent_tool so the agent can call them in any order
+and decide whether to invoke the AI enrichment step.
+"""
 from __future__ import annotations
 
 import re
 
-from strands import Agent, tool
-
+from core.agent import AgentTool, GroqAgent, agent_tool
 from models.job import EmploymentType, JobStatus
 from tools.jd_parser import (
     extract_text_from_pdf,
     extract_text_from_string,
     identify_jd_sections,
 )
+
+# ---------------------------------------------------------------------------
+# NZ salary / location / competency data
+# ---------------------------------------------------------------------------
 
 _SENIORITY_SALARY_MAP = [
     (r"(?i)(chief|secretary|deputy\s+secretary|tier\s*[12])", "Band 7: $170,000 - $250,000+"),
@@ -29,6 +45,12 @@ _NZ_CITIES = [
 
 _TREATY_COMPETENCY = "Commitment to Te Tiriti o Waitangi"
 
+_STANDARD_COMPETENCIES = [
+    "Stakeholder engagement",
+    "Delivering results",
+    "Bicultural capability",
+]
+
 
 def _lines_to_list(text: str) -> list[str]:
     items = []
@@ -39,92 +61,82 @@ def _lines_to_list(text: str) -> list[str]:
     return items
 
 
-def _extract_field_from_text(text: str, patterns: list[str]) -> str:
+def _extract_field(text: str, patterns: list[str]) -> str:
     for pat in patterns:
-        match = re.search(pat, text, re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
     return ""
 
 
-@tool
-def parse_job_description(raw_text: str, source_file: str = "") -> dict:
-    """Parse raw JD text into a dict matching JobDescription fields.
+# ---------------------------------------------------------------------------
+# Tool 1 — Parse JD (regex-based, no LLM)
+# ---------------------------------------------------------------------------
 
-    Calls identify_jd_sections to split the text, then extracts or infers
-    each field. Returns sensible NZ public sector defaults for missing fields.
-    """
+@agent_tool(
+    description=(
+        "Parse raw job description text into structured fields: title, organisation, "
+        "department, location, salary, employment type, closing date, overview, "
+        "responsibilities, required_skills, preferred_skills, qualifications, competencies. "
+        "Call this first on any JD."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "raw_text":    {"type": "string", "description": "The full raw JD text"},
+            "source_file": {"type": "string", "description": "Optional source filename"},
+        },
+        "required": ["raw_text"],
+    },
+)
+def parse_job_description(raw_text: str, source_file: str = "") -> dict:
     sections = identify_jd_sections(raw_text)
 
-    title = _extract_field_from_text(
-        raw_text,
-        [
-            r"(?i)position\s+title[:\s]+(.+)",
-            r"(?i)role\s+title[:\s]+(.+)",
-            r"(?i)job\s+title[:\s]+(.+)",
-            r"(?im)^(?:title)[:\s]+(.+)$",
-        ],
-    )
+    title = _extract_field(raw_text, [
+        r"(?i)position\s+title[:\s]+(.+)",
+        r"(?i)role\s+title[:\s]+(.+)",
+        r"(?i)job\s+title[:\s]+(.+)",
+        r"(?im)^(?:title)[:\s]+(.+)$",
+    ])
     if not title:
-        first_lines = [line.strip() for line in raw_text.strip().splitlines() if line.strip()]
+        first_lines = [l.strip() for l in raw_text.strip().splitlines() if l.strip()]
         title = first_lines[0] if first_lines else "Untitled Role"
 
-    organisation = _extract_field_from_text(
-        raw_text,
-        [
-            r"(?i)organisation[:\s]+(.+)",
-            r"(?i)organization[:\s]+(.+)",
-            r"(?i)agency[:\s]+(.+)",
-            r"(?i)employer[:\s]+(.+)",
-        ],
-    )
+    organisation = _extract_field(raw_text, [
+        r"(?i)organisation[:\s]+(.+)",
+        r"(?i)organization[:\s]+(.+)",
+        r"(?i)agency[:\s]+(.+)",
+        r"(?i)employer[:\s]+(.+)",
+    ])
 
-    department = _extract_field_from_text(
-        raw_text,
-        [
-            r"(?i)department[:\s]+(.+)",
-            r"(?i)team[:\s]+(.+)",
-            r"(?i)division[:\s]+(.+)",
-            r"(?i)group[:\s]+(.+)",
-            r"(?i)unit[:\s]+(.+)",
-        ],
-    )
+    department = _extract_field(raw_text, [
+        r"(?i)department[:\s]+(.+)",
+        r"(?i)division[:\s]+(.+)",
+        r"(?i)group[:\s]+(.+)",
+        r"(?i)team[:\s]+(.+)",
+    ])
 
-    location = _extract_field_from_text(
-        raw_text,
-        [
-            r"(?i)location[:\s]+(.+)",
-            r"(?i)based\s+in[:\s]+(.+)",
-            r"(?i)office\s+location[:\s]+(.+)",
-        ],
-    )
+    location = _extract_field(raw_text, [
+        r"(?i)location[:\s]+(.+)",
+        r"(?i)based\s+in[:\s]+(.+)",
+    ])
     if not location:
         for city in _NZ_CITIES:
             if city.lower() in raw_text.lower():
                 location = f"{city}, New Zealand"
                 break
-    if not location:
-        location = "Wellington, New Zealand"
+    location = location or "Wellington, New Zealand"
 
-    salary_band = _extract_field_from_text(
-        raw_text,
-        [
-            r"(?i)salary[:\s]+(.+)",
-            r"(?i)remuneration[:\s]+(.+)",
-            r"(?i)band\s*\d[:\s]+(.+)",
-            r"(?i)\$([\d,]+\s*[-–]\s*\$[\d,]+)",
-        ],
-    )
+    salary_band = _extract_field(raw_text, [
+        r"(?i)salary[:\s]+(.+)",
+        r"(?i)remuneration[:\s]+(.+)",
+        r"(?i)\$([\d,]+\s*[-–]\s*\$[\d,]+)",
+    ])
 
-    employment_type_raw = _extract_field_from_text(
-        raw_text,
-        [
-            r"(?i)employment\s+type[:\s]+(.+)",
-            r"(?i)contract\s+type[:\s]+(.+)",
-            r"(?i)(permanent|fixed.term|casual)\s+(?:position|role|contract)",
-            r"(?i)(?:this\s+is\s+a\s+)(permanent|fixed.term|casual)",
-        ],
-    )
+    employment_type_raw = _extract_field(raw_text, [
+        r"(?i)employment\s+type[:\s]+(.+)",
+        r"(?i)(permanent|fixed.term|casual)\s+(?:position|role|contract)",
+    ])
     if re.search(r"(?i)fixed.term|contract", employment_type_raw or raw_text[:500]):
         employment_type = EmploymentType.FIXED_TERM.value
     elif re.search(r"(?i)casual", employment_type_raw or ""):
@@ -132,25 +144,14 @@ def parse_job_description(raw_text: str, source_file: str = "") -> dict:
     else:
         employment_type = EmploymentType.PERMANENT.value
 
-    closing_date_raw = _extract_field_from_text(
-        raw_text,
-        [
-            r"(?i)closing\s+date[:\s]+(.+)",
-            r"(?i)applications?\s+close[:\s]+(.+)",
-            r"(?i)apply\s+by[:\s]+(.+)",
-            r"(?i)closes?[:\s]+(.+)",
-        ],
-    )
+    closing_date_raw = _extract_field(raw_text, [
+        r"(?i)closing\s+date[:\s]+(.+)",
+        r"(?i)applications?\s+close[:\s]+(.+)",
+        r"(?i)apply\s+by[:\s]+(.+)",
+        r"(?i)closes?[:\s]+(.+)",
+    ])
 
-    overview = sections.get("overview", "").strip()
-    if not overview:
-        overview = raw_text[:500].strip()
-
-    responsibilities = _lines_to_list(sections.get("responsibilities", ""))
-    required_skills = _lines_to_list(sections.get("required_skills", ""))
-    preferred_skills = _lines_to_list(sections.get("preferred_skills", ""))
-    qualifications = _lines_to_list(sections.get("qualifications", ""))
-    competencies = _lines_to_list(sections.get("competencies", ""))
+    overview = sections.get("overview", "").strip() or raw_text[:500].strip()
 
     return {
         "title": title,
@@ -161,103 +162,108 @@ def parse_job_description(raw_text: str, source_file: str = "") -> dict:
         "employment_type": employment_type,
         "closing_date": closing_date_raw,
         "overview": overview,
-        "responsibilities": responsibilities,
-        "required_skills": required_skills,
-        "preferred_skills": preferred_skills,
-        "qualifications": qualifications,
-        "competencies": competencies,
-        "status": JobStatus.DRAFT.value,
+        "responsibilities": _lines_to_list(sections.get("responsibilities", "")),
+        "required_skills":  _lines_to_list(sections.get("required_skills", "")),
+        "preferred_skills": _lines_to_list(sections.get("preferred_skills", "")),
+        "qualifications":   _lines_to_list(sections.get("qualifications", "")),
+        "competencies":     _lines_to_list(sections.get("competencies", "")),
+        "status":      JobStatus.DRAFT.value,
         "source_file": source_file,
     }
 
 
-@tool
-def validate_jd_completeness(jd_dict: dict) -> dict:
-    """Check which required JD fields are missing or empty.
+# ---------------------------------------------------------------------------
+# Tool 2 — Validate completeness
+# ---------------------------------------------------------------------------
 
-    Returns: {"is_complete": bool, "missing_fields": list[str], "warnings": list[str]}
-    """
-    required_fields = [
-        "title", "organisation", "department", "location",
-        "overview", "responsibilities", "required_skills",
+@agent_tool(
+    description=(
+        "Validate a parsed JD dict for completeness against NZ public sector standards. "
+        "Returns missing_fields and warnings. Call after parse_job_description."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "jd_json": {"type": "string", "description": "JSON string of the parsed JD dict"},
+        },
+        "required": ["jd_json"],
+    },
+)
+def validate_jd_completeness(jd_json: str) -> dict:
+    import json
+    jd_dict = json.loads(jd_json)
+
+    required_fields = ["title", "organisation", "location", "overview", "responsibilities", "required_skills"]
+    missing_fields = [
+        f for f in required_fields
+        if not jd_dict.get(f) or (isinstance(jd_dict[f], list) and not jd_dict[f])
     ]
 
-    missing_fields: list[str] = []
-    for field in required_fields:
-        value = jd_dict.get(field)
-        if not value or (isinstance(value, list) and len(value) == 0):
-            missing_fields.append(field)
-
     warnings: list[str] = []
-
     if not jd_dict.get("salary_band"):
-        warnings.append("No salary band specified — NZ public sector roles should include a salary band for transparency.")
-
+        warnings.append("No salary band — NZ public sector roles should include a salary band.")
     if not jd_dict.get("closing_date"):
-        warnings.append("No closing date specified — NZ public sector JDs typically close 3–4 weeks after advertising.")
+        warnings.append("No closing date — NZ public sector JDs typically close 3–4 weeks after advertising.")
 
     competencies = jd_dict.get("competencies", [])
-    has_treaty = any(
-        re.search(r"(?i)te\s+tiriti|treaty\s+of\s+waitangi|waitangi", c)
-        for c in (competencies if isinstance(competencies, list) else [competencies])
-    )
+    has_treaty = any(re.search(r"(?i)te\s+tiriti|treaty|waitangi|bicultural", c) for c in competencies)
     if not has_treaty:
-        warnings.append(
-            "Missing Treaty of Waitangi competency — this is a standard requirement in NZ public sector roles."
-        )
+        warnings.append("Missing Treaty of Waitangi competency — standard in NZ public sector.")
 
     return {
-        "is_complete": len(missing_fields) == 0,
+        "is_complete": not missing_fields,
         "missing_fields": missing_fields,
         "warnings": warnings,
     }
 
 
-@tool
-def enrich_jd_with_nz_context(jd_dict: dict) -> dict:
-    """Enrich a JD dict with NZ public sector context.
+# ---------------------------------------------------------------------------
+# Tool 3 — Enrich with NZ context (rule-based)
+# ---------------------------------------------------------------------------
 
-    - Adds standard NZ public sector competencies if missing
-    - Normalises location to include city + ", New Zealand"
-    - Suggests salary band from title/seniority if missing
-    Returns an enriched copy of jd_dict.
-    """
+@agent_tool(
+    description=(
+        "Enrich a parsed JD dict with NZ public sector context: normalise location, "
+        "add Treaty of Waitangi competency, suggest salary band from title if missing. "
+        "Call after validate_jd_completeness."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "jd_json": {"type": "string", "description": "JSON string of the parsed JD dict"},
+        },
+        "required": ["jd_json"],
+    },
+)
+def enrich_jd_with_nz_context(jd_json: str) -> dict:
+    import json
+    jd_dict = json.loads(jd_json)
     enriched = dict(jd_dict)
 
-    location = enriched.get("location", "")
-    if location and "New Zealand" not in location and "NZ" not in location:
+    # Normalise location
+    loc = enriched.get("location", "")
+    if loc and "New Zealand" not in loc and "NZ" not in loc:
         for city in _NZ_CITIES:
-            if city.lower() in location.lower():
+            if city.lower() in loc.lower():
                 enriched["location"] = f"{city}, New Zealand"
                 break
         else:
-            enriched["location"] = f"{location}, New Zealand"
-    elif not location:
+            enriched["location"] = f"{loc}, New Zealand"
+    elif not loc:
         enriched["location"] = "Wellington, New Zealand"
 
-    competencies = enriched.get("competencies", [])
-    if not isinstance(competencies, list):
-        competencies = [competencies] if competencies else []
-
-    has_treaty = any(
-        re.search(r"(?i)te\s+tiriti|treaty\s+of\s+waitangi|waitangi", c)
-        for c in competencies
-    )
+    # Ensure Treaty competency
+    competencies = list(enriched.get("competencies", []))
+    has_treaty = any(re.search(r"(?i)te\s+tiriti|treaty|waitangi|bicultural", c) for c in competencies)
     if not has_treaty:
         competencies = [_TREATY_COMPETENCY] + competencies
-
-    standard_competencies = [
-        "Stakeholder engagement",
-        "Delivering results",
-        "Bicultural capability",
-    ]
     existing_lower = {c.lower() for c in competencies}
-    for comp in standard_competencies:
+    for comp in _STANDARD_COMPETENCIES:
         if comp.lower() not in existing_lower:
             competencies.append(comp)
-
     enriched["competencies"] = competencies
 
+    # Suggest salary band from title seniority
     if not enriched.get("salary_band"):
         title = enriched.get("title", "")
         for pattern, band in _SENIORITY_SALARY_MAP:
@@ -270,44 +276,105 @@ def enrich_jd_with_nz_context(jd_dict: dict) -> dict:
     return enriched
 
 
-job_analyst_agent = Agent(
-    system_prompt="""You are a specialist NZ public sector HR advisor with deep expertise in:
+# ---------------------------------------------------------------------------
+# Tool 4 — AI gap-fill (Groq) for hard-to-parse JDs
+# ---------------------------------------------------------------------------
 
-- NZ Public Service Act 2020 standards and the State Services Commission (now Te Kawa Mataaho) frameworks
-- MBIE, SSC/Te Kawa Mataaho, and Treasury JD conventions and writing standards
-- Te Tiriti o Waitangi obligations in public sector employment — every NZ public sector JD must include a genuine Treaty commitment, not just token language
-- NZ public sector salary bands: Band 1 (~$50k–$65k, entry/graduate), Band 2 (~$65k–$80k, junior professional), Band 3 (~$75k–$95k, analyst/advisor/coordinator), Band 4 (~$95k–$120k, senior analyst/senior advisor), Band 5 (~$110k–$135k, manager/senior manager), Band 6 (~$130k–$170k, director/principal), Band 7 ($170k+, GM/deputy secretary/chief)
-- Closing date norms: NZ public sector roles typically advertise for 3–4 weeks; roles requiring security clearances may advertise longer
-- The Leadership Success Profile (LSP) competency framework used across the public service
-- SFIA (Skills Framework for the Information Age) for ICT roles in government
-- Tikanga Māori, te ao Māori, and kaupapa Māori — genuine bicultural capability is non-negotiable, not an afterthought
-- NZ government structure: central government agencies (MBIE, MSD, Treasury, DPMC, MfE, NZTA, MoH), Crown entities, Te Whatu Ora/Health NZ, and local authorities
-- Equity and inclusion requirements — JDs must actively encourage Māori, Pasifika, tāngata whaikaha (disabled people), and other underrepresented groups to apply
-- careers.govt.nz and SmartJobs.nz standards for public sector job advertising
-- Employment Relations Act 2000 and Health and Safety at Work Act 2015 compliance considerations
+@agent_tool(
+    description=(
+        "Use AI to extract or infer fields that regex couldn't parse — e.g. skills buried "
+        "in prose, a missing overview summary, or ambiguous competencies. "
+        "Call this only when parse_job_description left important fields empty."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "raw_text":      {"type": "string", "description": "The original raw JD text"},
+            "missing_fields": {"type": "array", "items": {"type": "string"},
+                               "description": "List of field names that are empty"},
+        },
+        "required": ["raw_text", "missing_fields"],
+    },
+)
+def ai_fill_missing_fields(raw_text: str, missing_fields: list[str]) -> dict:
+    import json, os, httpx
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        return {}
 
-When analysing a JD:
-1. Parse it carefully to extract all structured fields
-2. Validate completeness against NZ public sector standards
-3. Enrich with missing context — especially Treaty obligations and standard competencies
-4. Flag any language that may inadvertently exclude diverse candidates
-5. Ensure location, salary band, and closing date are present and accurate
-6. Check responsibilities and required skills are realistic and not inflated
+    prompt = f"""You are an NZ public sector HR specialist.
+Extract the following fields from this job description.
+If a field isn't explicitly stated, make a reasonable inference from context.
+Fields needed: {missing_fields}
 
-Use the available tools systematically: parse first, then validate, then enrich.""",
-    tools=[parse_job_description, validate_jd_completeness, enrich_jd_with_nz_context],
+Job Description:
+{raw_text[:4000]}
+
+Return a JSON object with only the requested fields.
+For list fields (responsibilities, required_skills, etc.) return an array of strings.
+JSON only."""
+
+    resp = httpx.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        json={
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": "You are an NZ public sector HR specialist. Return only valid JSON."},
+                {"role": "user",   "content": prompt},
+            ],
+            "max_tokens": 2048,
+            "temperature": 0.1,
+        },
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    raw = resp.json()["choices"][0]["message"]["content"]
+    try:
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        return json.loads(m.group()) if m else {}
+    except (json.JSONDecodeError, AttributeError):
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# Agent definition
+# ---------------------------------------------------------------------------
+
+_SYSTEM_PROMPT = """You are an expert NZ public sector HR advisor who analyses job descriptions.
+
+Your process:
+1. Call parse_job_description to extract structured fields from the raw text
+2. Call validate_jd_completeness to find what's missing
+3. If important fields are missing (required_skills, overview, organisation) → call ai_fill_missing_fields
+4. Call enrich_jd_with_nz_context to apply NZ public sector standards
+5. Return the final enriched JD
+
+NZ public sector standards you enforce:
+- Every JD must include Treaty of Waitangi / Te Tiriti commitment
+- Salary bands must reflect NZ government bands (not private sector)
+- Location must reference a NZ city
+- Required skills must be realistic and achievable
+- Competencies must align with the Leadership Success Profile
+
+Always call enrich_jd_with_nz_context as the final step."""
+
+_analyst_agent = GroqAgent(
+    system_prompt=_SYSTEM_PROMPT,
+    tools=[parse_job_description, validate_jd_completeness, enrich_jd_with_nz_context, ai_fill_missing_fields],
+    max_iterations=8,
+    temperature=0.1,
 )
 
 
+# ---------------------------------------------------------------------------
+# Public interface — called by the API route
+# ---------------------------------------------------------------------------
+
 def analyse_job(raw_input: str, is_file_path: bool = False) -> dict:
-    """Analyse a job description from text or PDF file path.
-
-    Args:
-        raw_input: Either raw JD text or a file path to a PDF.
-        is_file_path: If True, raw_input is treated as a PDF file path.
-
-    Returns:
-        {"job_description": dict, "validation": dict, "enriched": bool}
+    """
+    Analyse a job description. The agent parses, validates, AI-fills gaps,
+    and enriches — deciding autonomously which steps are needed.
     """
     if is_file_path:
         text = extract_text_from_pdf(raw_input)
@@ -316,9 +383,25 @@ def analyse_job(raw_input: str, is_file_path: bool = False) -> dict:
         text = extract_text_from_string(raw_input)
         source_file = ""
 
-    jd_dict = parse_job_description(text, source_file=source_file)
-    validation = validate_jd_completeness(jd_dict)
-    enriched_dict = enrich_jd_with_nz_context(jd_dict)
+    import json
+
+    # Run the agent — it decides the tool sequence
+    _analyst_agent.run(
+        f"Analyse this job description and return a complete, enriched JD:\n\n{text[:6000]}"
+    )
+
+    # Collect results via direct tool calls for structured output
+    jd_dict = parse_job_description.fn(raw_text=text, source_file=source_file)
+    validation = json.loads(validate_jd_completeness.fn(jd_json=json.dumps(jd_dict)))
+
+    # AI gap-fill if needed
+    if validation.get("missing_fields"):
+        filled = ai_fill_missing_fields.fn(raw_text=text, missing_fields=validation["missing_fields"])
+        for field, value in filled.items():
+            if value and not jd_dict.get(field):
+                jd_dict[field] = value
+
+    enriched_dict = enrich_jd_with_nz_context.fn(jd_json=json.dumps(jd_dict))
 
     return {
         "job_description": enriched_dict,
