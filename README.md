@@ -38,7 +38,7 @@ npm run dev
 
 ## Project Structure
 ```
-pubsec-recruiter-nz/
+aipips/
 ├── backend/
 │   ├── agents/        # Strands agent definitions
 │   ├── api/           # FastAPI route handlers

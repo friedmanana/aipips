@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers deploying the PubSec Recruiter NZ platform to production using Supabase (database), Railway (backend), and Vercel (frontend).
+This guide covers deploying the AI Pips platform to production using Supabase (database), Railway (backend), and Vercel (frontend).
 
 ---
 
@@ -31,14 +31,14 @@ You will need accounts on the following platforms:
 ## Section 3: Backend — Railway
 
 1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**.
-2. Select the `pubsec-recruiter-nz` repository.
+2. Select the `aipips` repository.
 3. Railway will auto-detect `backend/Dockerfile` via `railway.json` and use it for the build.
 4. In the Railway dashboard for your service, go to **Variables** and set the following environment variables:
    - `ANTHROPIC_API_KEY` — from [console.anthropic.com](https://console.anthropic.com)
    - `SUPABASE_URL` — the Project URL from Supabase Settings → API
    - `SUPABASE_KEY` — the anon key from Supabase Settings → API
    - `ALLOWED_ORIGINS` — leave blank for now; you will add this after Vercel deployment (step 4.7)
-5. Once deployed, copy the Railway-assigned public URL (e.g. `https://pubsec-recruiter-nz-production.up.railway.app`).
+5. Once deployed, copy the Railway-assigned public URL (e.g. `https://aipips-production.up.railway.app`).
 6. Go to your GitHub repository **Settings → Secrets and variables → Actions** and add:
    - `RAILWAY_TOKEN` — from Railway dashboard → Account Settings → Tokens
 
@@ -47,14 +47,14 @@ You will need accounts on the following platforms:
 ## Section 4: Frontend — Vercel
 
 1. Go to [vercel.com](https://vercel.com) → **New Project** → **Import from GitHub**.
-2. Select the `pubsec-recruiter-nz` repository.
+2. Select the `aipips` repository.
 3. Set the **Root Directory** to `frontend`.
 4. Under **Environment Variables**, add:
-   - `NEXT_PUBLIC_API_URL` — your Railway URL from step 3.5 (e.g. `https://pubsec-recruiter-nz-production.up.railway.app`)
+   - `NEXT_PUBLIC_API_URL` — your Railway URL from step 3.5 (e.g. `https://aipips-production.up.railway.app`)
 5. Click **Deploy**.
-6. Once deployed, copy the Vercel URL (e.g. `https://pubsec-recruiter-nz.vercel.app`).
+6. Once deployed, copy the Vercel URL (e.g. `https://aipips.vercel.app`).
 7. Go back to Railway → your service **Variables** and add:
-   - `ALLOWED_ORIGINS=https://pubsec-recruiter-nz.vercel.app`
+   - `ALLOWED_ORIGINS=https://aipips.vercel.app`
    - (If you have multiple Vercel URLs, separate them with commas.)
 8. Go to your GitHub repository **Settings → Secrets and variables → Actions** and add:
    - `VERCEL_TOKEN` — from Vercel dashboard → Account Settings → Tokens
