@@ -189,9 +189,9 @@ def source_candidates(job_id: str) -> SourcingResponse:
         traceback.print_exc()
         raise HTTPException(status_code=503, detail=f"Sourcing failed: {exc}") from exc
 
-    # Persist each sourced candidate
-    try:
-        for candidate in result.get("all_scored", []):
+    # Persist each sourced candidate — log errors but don't crash the response
+    for candidate in result.get("all_scored", []):
+        try:
             source = candidate.get("source", "LINKEDIN_XRAY")
             candidate_dict = {
                 "full_name": candidate.get("name", "Unknown"),
@@ -210,17 +210,8 @@ def source_candidates(job_id: str) -> SourcingResponse:
             if source == "PLATFORM" and candidate.get("profile_id"):
                 candidate_dict["candidate_profile_id"] = candidate["profile_id"]
             db.save_candidate(candidate_dict)
-
-        # Record the sourcing run
-        db.get_client().table("sourcing_runs").insert(
-            {
-                "job_id": job_id,
-                "total_found": result.get("total_found", 0),
-                "total_scored": result.get("total_scored", 0),
-            }
-        ).execute()
-    except RuntimeError as exc:
-        raise _handle_runtime_error(exc) from exc
+        except Exception as exc:
+            print(f"[source] failed to save candidate {candidate.get('name')}: {exc}")
 
     return SourcingResponse(**result)
 

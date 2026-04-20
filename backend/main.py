@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.routes.booking import router as booking_router
 from api.routes.candidate import router as candidate_router
@@ -43,6 +44,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure CORS headers are present even on unhandled 500 errors.
+# Without this, browsers see "Load failed" instead of the real error message
+# because the CORS middleware doesn't run after an unhandled exception.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {exc}"},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
 
 app.include_router(jobs_router)
 app.include_router(db_jobs_router)
