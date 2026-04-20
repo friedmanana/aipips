@@ -51,14 +51,33 @@ def _parse_cv_text(cv_text: str, index: int = 0) -> dict:
     # Attempt to extract a name from the first non-empty line
     full_name = lines[0] if lines else f"Candidate {index + 1}"
 
-    # Look for a current title / role
+    # Look for a current title / role — skip contact/location lines
+    _contact_markers = ("@", "linkedin.com", "http", "phone:", "tel:", "mobile:",
+                        "new zealand", "wellington", "auckland", "christchurch",
+                        "|", "+64", "021 ", "022 ", "027 ", "09 ", "04 ")
     current_title = ""
-    for line in lines[1:6]:
-        if any(kw in line.lower() for kw in ("analyst", "manager", "director", "officer", "advisor", "specialist", "lead", "consultant")):
+    for line in lines[1:10]:
+        lower = line.lower()
+        # Skip lines that look like contact/address info
+        if any(m in lower for m in _contact_markers):
+            continue
+        # Skip very long lines (paragraphs / summaries)
+        if len(line) > 80:
+            continue
+        # Prefer lines that contain a job-title keyword
+        if any(kw in lower for kw in (
+            "engineer", "analyst", "manager", "director", "officer", "advisor",
+            "specialist", "lead", "consultant", "scientist", "developer",
+            "architect", "coordinator", "executive", "researcher",
+        )):
             current_title = line
             break
-    if not current_title and len(lines) > 1:
-        current_title = lines[1]
+        # Accept a short line that isn't a known section header (tentative)
+        _header_words = {"summary", "profile", "objective", "about", "education",
+                         "experience", "skills", "contact", "references", "awards",
+                         "professional summary", "career summary"}
+        if line and lower.rstrip(":") not in _header_words and not current_title:
+            current_title = line  # keep looking — a keyword match overrides this
 
     # Extract skills — capture lines under a SKILLS/COMPETENCIES heading AND
     # bullet/comma lists elsewhere in the CV.
