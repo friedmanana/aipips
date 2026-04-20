@@ -16,7 +16,7 @@ import os
 import re
 
 import httpx
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 from core.agent import agent_tool
 
@@ -53,16 +53,24 @@ def search_linkedin_profiles(
     results = []
     try:
         with DDGS() as ddgs:
-            for r in ddgs.text(query, max_results=max_results):
+            for r in ddgs.text(query, max_results=max_results + 5):  # fetch extra to allow for ad filtering
+                url = r.get("href", "")
+                # Skip ads and non-LinkedIn URLs
+                if "linkedin.com/in/" not in url:
+                    continue
                 name, title = _parse_linkedin_title(r.get("title", ""))
+                if not name:
+                    continue
                 results.append({
                     "name": name,
                     "title": title,
-                    "url": r.get("href", ""),
+                    "url": url,
                     "snippet": r.get("body", ""),
                     "location_hint": _extract_location_hint(r.get("body", "")),
                     "source": "LINKEDIN_XRAY",
                 })
+                if len(results) >= max_results:
+                    break
     except Exception as exc:
         print(f"[sourcing] LinkedIn search error: {exc}")
     print(f"[sourcing] LinkedIn search returned {len(results)} results")

@@ -14,7 +14,7 @@ supabase>=2.4.0
 python-dotenv>=1.0.0
 pypdf>=4.2.0
 python-dateutil>=2.9.0
-duckduckgo-search>=6.2.0
+ddgs>=1.0
 
 # dev
 pytest>=8.0.0
