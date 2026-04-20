@@ -64,7 +64,8 @@ function JobDetailPage() {
       setJob(jobData)
       setCandidates(allResults)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err))
+      const msg = err instanceof Error ? `${err.constructor.name}: ${err.message}` : String(err)
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -204,10 +205,9 @@ function JobDetailPage() {
         </Link>
         <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
           <p className="font-medium text-red-800">Failed to load role</p>
-          {isNetwork ? (
-            <p className="text-sm text-red-600 mt-1">The server may be waking up — this can take up to 30 seconds on first load.</p>
-          ) : (
-            <p className="text-sm text-red-600 mt-1 font-mono">{error}</p>
+          <p className="text-sm text-red-600 mt-1 font-mono break-all">{error}</p>
+          {isNetwork && (
+            <p className="text-xs text-red-500 mt-1">Check browser console (F12) for details.</p>
           )}
           <button
             onClick={loadData}
