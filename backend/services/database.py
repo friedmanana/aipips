@@ -334,24 +334,54 @@ def update_job_raw_text(job_id: str, raw_text: str) -> dict:
 
 @_retryable
 def save_candidate(candidate_dict: dict) -> dict:
-    """Upsert a candidate record and return the saved record.
+    """Insert or update a candidate record and return the saved record.
+
+    For PLATFORM candidates with candidate_profile_id, looks up the existing
+    record first so we don't create duplicates across sourcing runs.
 
     Args:
         candidate_dict: A dict matching the candidates table schema.
 
     Returns:
-        The saved record dict.
+        The saved record dict (with 'id' populated).
 
     Raises:
         RuntimeError: if Supabase is not configured.
     """
     client = get_client()
+
+    # For platform candidates: find existing record by candidate_profile_id
+    profile_id = candidate_dict.get("candidate_profile_id")
+    if profile_id:
+        existing = (
+            client.table("candidates")
+            .select("id")
+            .eq("candidate_profile_id", profile_id)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            # Update and return existing record
+            record_id = existing.data[0]["id"]
+            update_dict = {k: v for k, v in candidate_dict.items() if k != "candidate_profile_id"}
+            client.table("candidates").update(update_dict).eq("id", record_id).execute()
+            return {"id": record_id, **candidate_dict}
+
+    # No existing record — insert new
     response = (
         client.table("candidates")
-        .upsert(candidate_dict, on_conflict="id")
+        .insert(candidate_dict)
         .execute()
     )
-    return response.data[0]
+    if response.data:
+        return response.data[0]
+    # Fallback: try to fetch by email if insert failed due to conflict
+    email = candidate_dict.get("email")
+    if email:
+        fallback = client.table("candidates").select("id").eq("email", email).limit(1).execute()
+        if fallback.data:
+            return {"id": fallback.data[0]["id"], **candidate_dict}
+    raise RuntimeError(f"save_candidate failed — no data returned and no fallback found")
 
 
 @_retryable
