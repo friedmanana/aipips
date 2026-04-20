@@ -817,26 +817,37 @@ def get_platform_candidates_with_cvs() -> list[dict]:
         .order("created_at", desc=True)
         .execute()
     )
+    print(f"[db] cv_documents total rows: {len(cv_resp.data) if cv_resp.data else 0}")
     if not cv_resp.data:
         return []
     # Drop rows with no meaningful CV content
     cv_resp_data = [row for row in cv_resp.data if row.get("content_text", "").strip()]
+    print(f"[db] cv_documents with content: {len(cv_resp_data)}")
     if not cv_resp_data:
         return []
 
     # 2. Fetch corresponding job applications
     app_ids = list({row["application_id"] for row in cv_resp_data})
+    print(f"[db] unique application_ids to look up: {len(app_ids)}")
     apps_resp = (
         client.table("job_applications")
         .select("id, candidate_profile_id, job_title")
         .in_("id", app_ids)
         .execute()
     )
+    print(f"[db] job_applications found: {len(apps_resp.data)}")
     app_map: dict[str, dict] = {row["id"]: row for row in apps_resp.data}
+
+    # Check for cv_documents whose application_id has no matching job_application
+    missing_apps = [aid for aid in app_ids if aid not in app_map]
+    if missing_apps:
+        print(f"[db] WARNING: {len(missing_apps)} cv_documents have no matching job_application: {missing_apps[:5]}")
 
     # 3. Fetch candidate profiles
     profile_ids = list({row["candidate_profile_id"] for row in apps_resp.data if row.get("candidate_profile_id")})
+    print(f"[db] unique candidate_profile_ids to look up: {len(profile_ids)}")
     if not profile_ids:
+        print("[db] WARNING: no candidate_profile_ids found — no profiles to fetch")
         return []
 
     profiles_resp = (
@@ -845,7 +856,13 @@ def get_platform_candidates_with_cvs() -> list[dict]:
         .in_("id", profile_ids)
         .execute()
     )
+    print(f"[db] candidate_profiles found: {len(profiles_resp.data)}")
     profile_map: dict[str, dict] = {row["id"]: row for row in profiles_resp.data}
+
+    # Check for profile_ids with no matching candidate_profile
+    missing_profiles = [pid for pid in profile_ids if pid not in profile_map]
+    if missing_profiles:
+        print(f"[db] WARNING: {len(missing_profiles)} profile_ids have no matching candidate_profile: {missing_profiles[:5]}")
 
     # 4. For each profile pick the best CV (ENHANCED beats ORIGINAL; already ordered by created_at desc)
     best: dict[str, dict] = {}
@@ -870,7 +887,11 @@ def get_platform_candidates_with_cvs() -> list[dict]:
                 "job_title": app.get("job_title", ""),
             }
 
+    print(f"[db] unique profiles with best CV selected: {len(best)}")
+
     # 5. Build result list
+    # Return the raw full_name (may be empty string) so the sourcing agent
+    # can fall back to extracting the name from CV text.
     results: list[dict] = []
     for pid, cv_data in best.items():
         profile = profile_map.get(pid)
@@ -878,11 +899,12 @@ def get_platform_candidates_with_cvs() -> list[dict]:
             continue
         results.append({
             "profile_id": pid,
-            "full_name": profile.get("full_name") or "Platform Member",
+            "full_name": profile.get("full_name") or "",  # empty → sourcing agent extracts from CV
             "email": profile.get("email", ""),
             "cv_text": cv_data["cv_text"],
             "current_title": cv_data.get("job_title", ""),
         })
+    print(f"[db] platform candidates returning: {len(results)}")
     return results
 
 

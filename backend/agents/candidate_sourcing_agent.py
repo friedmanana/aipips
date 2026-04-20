@@ -260,11 +260,20 @@ def _collect_scored_candidates(job_requirements: dict) -> list[dict]:
         job_req_str = json.dumps(job_requirements)
         for c in platform_candidates:
             # full_name may be empty if the profile wasn't completed —
-            # fall back to the first line of the CV text (e.g. "Aroha Tane")
+            # extract name from CV text: find first non-empty, non-header line
             full_name = (c.get("full_name") or "").strip()
             if not full_name and c.get("cv_text"):
-                full_name = c["cv_text"].strip().split("\n")[0].strip()
+                header_keywords = {
+                    "curriculum vitae", "cv", "resume", "profile", "summary",
+                    "personal statement", "contact", "about me",
+                }
+                for line in c["cv_text"].strip().split("\n"):
+                    line = line.strip()
+                    if line and line.lower() not in header_keywords and len(line) < 60:
+                        full_name = line
+                        break
             candidate_name = full_name or "Platform Member"
+            print(f"[sourcing] platform candidate: name={candidate_name!r}, profile_id={c.get('profile_id', '')[:8]}...")
             result = score_candidate.fn(
                 candidate_name=candidate_name,
                 candidate_title=c.get("current_title", ""),
