@@ -350,23 +350,26 @@ def save_candidate(candidate_dict: dict) -> dict:
     """
     client = get_client()
 
-    # For platform candidates: find existing record by candidate_profile_id
-    profile_id = candidate_dict.get("candidate_profile_id")
-    if profile_id:
+    # For platform candidates: deduplicate by application_id (one record per application).
+    # This ensures Aroha Tane's AI Engineer application and Liam Taufa's Data Scientist
+    # application each get their own candidate record, even if they share a profile.
+    app_id = candidate_dict.get("application_id")
+    if app_id:
         existing = (
             client.table("candidates")
             .select("id")
-            .eq("candidate_profile_id", profile_id)
+            .eq("application_id", app_id)
             .limit(1)
             .execute()
         )
         if existing.data:
-            # Update and return existing record (skip candidate_profile_id to avoid conflicts)
             record_id = existing.data[0]["id"]
-            skip = {"candidate_profile_id", "source"}  # source has a check constraint
+            # Update all fields except immutable keys
+            skip = {"application_id", "candidate_profile_id", "source"}
             update_dict = {k: v for k, v in candidate_dict.items() if k not in skip}
             client.table("candidates").update(update_dict).eq("id", record_id).execute()
             return {"id": record_id, **candidate_dict}
+        # No existing record for this application — fall through to insert
 
     # No existing record — insert new
     response = (
@@ -376,7 +379,11 @@ def save_candidate(candidate_dict: dict) -> dict:
     )
     if response.data:
         return response.data[0]
-    # Fallback: try to fetch by email if insert failed due to conflict
+    # Fallback: try to fetch by application_id if insert failed due to a race/conflict
+    if app_id:
+        fallback = client.table("candidates").select("id").eq("application_id", app_id).limit(1).execute()
+        if fallback.data:
+            return {"id": fallback.data[0]["id"], **candidate_dict}
     email = candidate_dict.get("email")
     if email:
         fallback = client.table("candidates").select("id").eq("email", email).limit(1).execute()
@@ -906,6 +913,7 @@ def get_platform_candidates_with_cvs() -> list[dict]:
             continue
         results.append({
             "profile_id": pid,
+            "application_id": app_id,
             "full_name": profile.get("full_name") or "",  # empty → sourcing agent extracts from CV
             "email": profile.get("email", ""),
             "cv_text": cv_data["cv_text"],

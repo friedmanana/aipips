@@ -212,8 +212,11 @@ def source_candidates(job_id: str) -> SourcingResponse:
                 "raw_cv_text": candidate.get("cv_text") or None,
                 "source": db_source,
             }
-            if source == "PLATFORM" and candidate.get("profile_id"):
-                candidate_dict["candidate_profile_id"] = candidate["profile_id"]
+            if source == "PLATFORM":
+                if candidate.get("profile_id"):
+                    candidate_dict["candidate_profile_id"] = candidate["profile_id"]
+                if candidate.get("application_id"):
+                    candidate_dict["application_id"] = candidate["application_id"]
             saved = db.save_candidate(candidate_dict)
             candidate_id = saved.get("id") if saved else None
 
