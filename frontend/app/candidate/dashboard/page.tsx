@@ -12,39 +12,64 @@ const STATUS_CONFIG = {
   COMPLETE:    { label: 'Complete',    color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
 }
 
+const CvIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <path d="M9 13h6M9 17h4"/>
+    <path d="M16.5 13.5l1 1-1 1" strokeWidth={1.5}/>
+    <circle cx="18" cy="14.5" r="0" fill="currentColor"/>
+    <path d="M15 12.5c.8-.5 2-.3 2.5.5s.3 2-.5 2.5" strokeWidth={1.4}/>
+  </svg>
+)
+
+const LetterIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2"/>
+    <path d="M2 7l10 7 10-7"/>
+  </svg>
+)
+
+const InterviewIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <path d="M8 10h8M8 14h5"/>
+  </svg>
+)
+
 const TOOLS = [
   {
     phase: 1,
-    icon: '📝',
+    Icon: CvIcon,
     label: 'CV Enhancement',
     description: 'Paste your CV and job description — AI rewrites it to match the role and pass ATS filters.',
-    color: 'from-violet-500 to-violet-700',
     bg: 'bg-violet-50',
+    iconColor: 'text-violet-600',
     border: 'border-violet-200',
     text: 'text-violet-700',
     btn: 'bg-violet-600 hover:bg-violet-700',
   },
   {
     phase: 2,
-    icon: '✍🏼',
+    Icon: LetterIcon,
     label: 'Cover Letter',
     description: 'Generate a tailored cover letter that speaks to the role, or enhance one you already have.',
-    color: 'from-violet-500 to-violet-700',
-    bg: 'bg-violet-50',
-    border: 'border-violet-200',
-    text: 'text-violet-700',
-    btn: 'bg-violet-600 hover:bg-violet-700',
+    bg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    border: 'border-indigo-200',
+    text: 'text-indigo-700',
+    btn: 'bg-indigo-600 hover:bg-indigo-700',
   },
   {
     phase: 3,
-    icon: '🎤',
+    Icon: InterviewIcon,
     label: 'Interview Prep',
     description: 'Get a personalised Q&A bank — behavioural, technical, and motivation questions with model answers.',
-    color: 'from-violet-500 to-violet-700',
-    bg: 'bg-violet-50',
-    border: 'border-violet-200',
-    text: 'text-violet-700',
-    btn: 'bg-violet-600 hover:bg-violet-700',
+    bg: 'bg-sky-50',
+    iconColor: 'text-sky-600',
+    border: 'border-sky-200',
+    text: 'text-sky-700',
+    btn: 'bg-sky-600 hover:bg-sky-700',
   },
 ]
 
@@ -96,8 +121,8 @@ export default function CandidateDashboard() {
               key={tool.phase}
               className={`relative bg-white rounded-2xl border ${tool.border} p-6 flex flex-col hover:shadow-md transition-all`}
             >
-              <div className={`w-12 h-12 rounded-xl ${tool.bg} flex items-center justify-center text-2xl mb-4`}>
-                {tool.icon}
+              <div className={`w-12 h-12 rounded-xl ${tool.bg} ${tool.iconColor} flex items-center justify-center mb-4`}>
+                <tool.Icon />
               </div>
               <h2 className={`text-base font-bold ${tool.text} mb-1`}>{tool.label}</h2>
               <p className="text-sm text-slate-500 flex-1 mb-5 leading-relaxed">{tool.description}</p>
