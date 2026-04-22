@@ -106,6 +106,7 @@ function ApplicationWorkspace() {
 
   const [savingCv, setSavingCv] = useState(false)
   const [parsingPdf, setParsingPdf] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const pdfInputRef = useRef<HTMLInputElement>(null)
   const clPdfInputRef = useRef<HTMLInputElement>(null)
   const [parsingClPdf, setParsingClPdf] = useState(false)
@@ -156,6 +157,14 @@ function ApplicationWorkspace() {
     setTimeout(() => setSuccessMsg(null), 3000)
   }
 
+  const requireTitle = (): boolean => {
+    if (jobTitle.trim()) return true
+    titleInputRef.current?.focus()
+    titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setError('Please add a job title before using AI features.')
+    return false
+  }
+
   const handleSaveCv = async () => {
     if (!cvInput.trim()) return
     setSavingCv(true); setError(null)
@@ -197,6 +206,7 @@ function ApplicationWorkspace() {
   }
 
   const handleGenerateCvFromScratch = async () => {
+    if (!requireTitle()) return
     if (!backgroundInput.trim()) return
     if (jdInput !== app?.job_description_text) await handleSaveJob()
     setGeneratingCvFromScratch(true); setError(null)
@@ -225,6 +235,7 @@ function ApplicationWorkspace() {
   }
 
   const handleEnhanceCv = async () => {
+    if (!requireTitle()) return
     if (cvInput.trim() && cvInput !== originalCv?.content_text) await handleSaveCv()
     if (jdInput !== app?.job_description_text) await handleSaveJob()
     setEnhancing(true); setError(null)
@@ -236,6 +247,7 @@ function ApplicationWorkspace() {
   }
 
   const handleGenerateCl = async () => {
+    if (!requireTitle()) return
     setGeneratingCl(true); setError(null)
     try {
       const cl = await candidateApi.generateCoverLetter(id, clLength, clTone)
@@ -245,6 +257,7 @@ function ApplicationWorkspace() {
   }
 
   const handleEnhanceCl = async () => {
+    if (!requireTitle()) return
     if (!ownLetterInput.trim()) return
     setEnhancingCl(true); setError(null)
     try {
@@ -274,6 +287,7 @@ function ApplicationWorkspace() {
   }
 
   const handleGenerateQA = async () => {
+    if (!requireTitle()) return
     await handleSavePrep()
     setGeneratingQA(true); setError(null)
     setShowStarredOnly(false)
@@ -341,8 +355,9 @@ function ApplicationWorkspace() {
           </Link>
           <div className="flex items-center gap-3 mt-3 flex-wrap">
             <input
+              ref={titleInputRef}
               value={jobTitle}
-              onChange={e => setJobTitle(e.target.value)}
+              onChange={e => { setJobTitle(e.target.value); if (error?.includes('job title')) setError(null) }}
               onBlur={handleSaveJob}
               placeholder="Add job title…"
               className={`text-2xl font-bold text-slate-900 bg-transparent focus:outline-none min-w-[220px] ${
@@ -351,6 +366,11 @@ function ApplicationWorkspace() {
                   : 'border-b-2 border-dashed border-indigo-300 focus:border-indigo-500 placeholder:text-indigo-300'
               }`}
             />
+            {!jobTitle.trim() && (
+              <span className="text-xs font-semibold text-indigo-500 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
+                ← required
+              </span>
+            )}
             <input
               value={company}
               onChange={e => setCompany(e.target.value)}
