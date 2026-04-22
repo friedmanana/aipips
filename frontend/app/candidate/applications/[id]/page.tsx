@@ -280,30 +280,31 @@ function ApplicationWorkspace() {
     setCopied(key); setTimeout(() => setCopied(null), 2000)
   }
 
-  const handleDownloadPdf = (html: string, filename: string) => {
-    const win = window.open('', '_blank')
-    if (!win) return
-    const name = app?.job_title ? `${filename} — ${app.job_title}${app.company ? ` at ${app.company}` : ''}` : filename
-    win.document.write(`<!DOCTYPE html><html><head>
-      <meta charset="utf-8"/>
-      <title>${name}</title>
-      <style>
-        @page { margin: 18mm 20mm; }
-        * { box-sizing: border-box; }
-        body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; line-height: 1.55; color: #1a1a1a; margin: 0; padding: 0; }
-        h1 { font-size: 20pt; margin: 0 0 2px; }
-        h2 { font-size: 13pt; margin: 18px 0 4px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
-        h3 { font-size: 11pt; margin: 10px 0 2px; }
-        p  { margin: 0 0 8px; }
-        ul { margin: 4px 0 8px 18px; padding: 0; }
-        li { margin-bottom: 3px; }
-        strong, b { font-weight: 700; }
-        .no-print { display: none !important; }
-      </style>
-    </head><body>${html}</body></html>`)
-    win.document.close()
-    win.focus()
-    setTimeout(() => { win.print(); win.close() }, 400)
+  const handleDownloadPdf = async (html: string, filename: string) => {
+    const suffix = app?.job_title
+      ? `_${app.job_title}${app.company ? `_${app.company}` : ''}`.replace(/[^a-zA-Z0-9_-]/g, '_')
+      : ''
+    const outputName = `${filename.replace(' ', '_')}${suffix}.pdf`
+
+    const container = document.createElement('div')
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;padding:40px 48px;font-family:Georgia,serif;font-size:11pt;line-height:1.55;color:#1a1a1a;'
+    container.innerHTML = html
+    document.body.appendChild(container)
+
+    // dynamic import — html2pdf.js is browser-only
+    const html2pdf = (await import('html2pdf.js')).default
+    await html2pdf()
+      .set({
+        margin: [12, 14, 12, 14],
+        filename: outputName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(container)
+      .save()
+
+    document.body.removeChild(container)
   }
 
   if (loading) {
