@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { candidateApi } from '@/lib/candidateApi'
 import { CvPip, LetterPip, InterviewPip } from '@/components/PipIcons'
 import type { JobApplication, CvDocument, CoverLetter, QAItem } from '@/types'
@@ -66,6 +65,7 @@ function ParamPicker({ label, options, value, onChange }: {
 function ApplicationWorkspace() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [app, setApp] = useState<JobApplication | null>(null)
   const [originalCv, setOriginalCv] = useState<CvDocument | null>(null)
   const [enhancedCv, setEnhancedCv] = useState<CvDocument | null>(null)
@@ -350,9 +350,20 @@ function ApplicationWorkspace() {
       {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <Link href="/candidate/dashboard" className="text-base text-slate-500 hover:text-slate-700">
+          <button
+            onClick={() => {
+              if (!jobTitle.trim()) {
+                titleInputRef.current?.focus()
+                titleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                setError('Please add a job title before leaving — otherwise this application will be lost.')
+              } else {
+                router.push('/candidate/dashboard')
+              }
+            }}
+            className="text-base text-slate-500 hover:text-slate-700"
+          >
             ← My Applications
-          </Link>
+          </button>
           <div className="flex items-center gap-3 mt-3 flex-wrap">
             <input
               ref={titleInputRef}
