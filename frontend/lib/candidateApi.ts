@@ -122,12 +122,15 @@ export const candidateApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!res.ok) throw new Error(`PDF generation failed: ${await res.text()}`)
-    const blob = await res.blob()
+    const blob = new Blob([await res.arrayBuffer()], { type: 'application/pdf' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = filename
+    a.style.display = 'none'
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    // Small delay before cleanup so Safari has time to process the download
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
   },
 }
