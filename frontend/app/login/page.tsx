@@ -36,6 +36,12 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(true)
 
+  // Pre-warm the backend so it's ready by the time the user reaches the dashboard
+  useEffect(() => {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+    fetch(`${base}/health`, { method: 'GET' }).catch(() => {})
+  }, [])
+
   // If already signed in, skip the login page and go straight to destination
   useEffect(() => {
     const supabase = createClient()

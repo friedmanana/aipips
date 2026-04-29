@@ -38,9 +38,11 @@ export default function CandidateDashboard() {
   const router = useRouter()
   const [applications, setApplications] = useState<JobApplication[]>([])
   const [loading, setLoading] = useState(true)
+  const [slowLoad, setSlowLoad] = useState(false)
   const [starting, setStarting] = useState<number | null>(null)
 
   useEffect(() => {
+    const slowTimer = setTimeout(() => setSlowLoad(true), 4000)
     candidateApi.listApplications()
       .then(async (apps) => {
         // Auto-delete only applications that are completely empty AND less than 10 minutes old
@@ -57,7 +59,7 @@ export default function CandidateDashboard() {
         setApplications(apps.filter((a) => a.job_title?.trim()))
       })
       .catch(console.error)
-      .finally(() => setLoading(false))
+      .finally(() => { clearTimeout(slowTimer); setLoading(false); setSlowLoad(false) })
   }, [])
 
   const handleStart = async (phase: number) => {
@@ -124,11 +126,14 @@ export default function CandidateDashboard() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
             <svg className="w-7 h-7 animate-spin text-indigo-400" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
+            {slowLoad && (
+              <p className="text-sm text-slate-400">Backend is warming up — this takes about 30 seconds on first load…</p>
+            )}
           </div>
         ) : applications.length === 0 ? (
           <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-10 text-center text-slate-400">
