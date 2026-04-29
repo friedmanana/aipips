@@ -19,33 +19,18 @@ const TOOLS = [
     Icon: CvPip,
     label: 'CV Enhancement',
     description: 'Paste your CV and the job ad. AI rewrites it to match what the employer is looking for.',
-    bg: 'bg-violet-100',
-    iconColor: 'text-violet-600',
-    border: 'border-violet-200',
-    text: 'text-violet-700',
-    btn: 'bg-violet-600 hover:bg-violet-700',
   },
   {
     phase: 2,
     Icon: LetterPip,
     label: 'Cover Letter',
     description: 'Start from scratch or improve what you have. AI writes a cover letter that fits the job.',
-    bg: 'bg-indigo-100',
-    iconColor: 'text-indigo-600',
-    border: 'border-indigo-200',
-    text: 'text-indigo-700',
-    btn: 'bg-indigo-600 hover:bg-indigo-700',
   },
   {
     phase: 3,
     Icon: InterviewPip,
     label: 'Interview Prep',
     description: 'Get a list of likely interview questions with example answers — based on the job and your CV.',
-    bg: 'bg-sky-100',
-    iconColor: 'text-sky-600',
-    border: 'border-sky-200',
-    text: 'text-sky-700',
-    btn: 'bg-sky-600 hover:bg-sky-700',
   },
 ]
 
@@ -102,17 +87,17 @@ export default function CandidateDashboard() {
           {TOOLS.map((tool) => (
             <div
               key={tool.phase}
-              className={`relative bg-white rounded-2xl border ${tool.border} p-6 flex flex-col hover:shadow-md transition-all`}
+              className="relative bg-white rounded-2xl border border-slate-200 p-6 flex flex-col hover:shadow-md hover:border-indigo-200 transition-all"
             >
-              <div className={`w-14 h-14 rounded-2xl ${tool.bg} ${tool.iconColor} flex items-center justify-center mb-4`}>
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4">
                 <tool.Icon />
               </div>
-              <h2 className={`text-base font-bold ${tool.text} mb-1`}>{tool.label}</h2>
+              <h2 className="text-base font-bold text-slate-800 mb-1">{tool.label}</h2>
               <p className="text-sm text-slate-500 flex-1 mb-5 leading-relaxed">{tool.description}</p>
               <button
                 onClick={() => handleStart(tool.phase)}
                 disabled={starting !== null}
-                className={`w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2 ${tool.btn}`}
+                className="w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700"
               >
                 {starting === tool.phase
                   ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Opening…</>
